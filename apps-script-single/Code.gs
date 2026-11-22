@@ -1337,7 +1337,7 @@ function setup() {
   });
   const def = ss.getSheetByName('Sheet1'); if (def && ss.getSheets().length > 1) ss.deleteSheet(def);
   const P = PropertiesService.getScriptProperties();
-  const defaults = { GITHUB_BRANCH: 'main', ZEPTO_HOST: 'api.zeptomail.in', ZENODO_SANDBOX: 'true', SITE_URL: 'https://acriindia.org.in', MAIL_DOMAIN: 'journals.acriindia.org', SYSTEM_FROM: 'no.reply@journals.acriindia.org', CAMPAIGN_PROVIDER: 'zepto', CONTROLLER_EMAIL: 'controller@journals.acriindia.org', EDITORS_EMAIL: 'editor@journals.acriindia.org', ADMIN_EMAILS: 'sfenilshah5283@gmail.com,president@acriindia.org', ZENODO_COMMUNITY: '', MAIL_PROVIDER: 'auto' };
+  const defaults = { GITHUB_BRANCH: 'main', ZEPTO_HOST: 'api.zeptomail.in', ZENODO_SANDBOX: 'true', SITE_URL: 'https://acriindia.org.in', MAIL_DOMAIN: 'journals.acriindia.org', SYSTEM_FROM: 'no.reply@journals.acriindia.org', CAMPAIGN_PROVIDER: 'brevo', NEWSLETTER_FROM: 'newsletter@journals.acriindia.org', CONTROLLER_EMAIL: 'controller@journals.acriindia.org', EDITORS_EMAIL: 'editor@journals.acriindia.org', ADMIN_EMAILS: 'sfenilshah5283@gmail.com,president@acriindia.org', ZENODO_COMMUNITY: '', MAIL_PROVIDER: 'auto' };
   Object.keys(defaults).forEach(k => { if (!P.getProperty(k)) P.setProperty(k, defaults[k]); });
   rootFolder_();
   seedJournals_();
@@ -1899,14 +1899,16 @@ function bumpContacts_(c) {
   all_('Contacts').forEach(x => { if (sent[x.email] && (c.audience.lists || []).indexOf(x.list) >= 0) updateContact_(x, { lastSent: now_(), sentCount: (Number(x.sentCount) || 0) + 1 }); });
 }
 
-function campaignProvider_() { return String(prop_('CAMPAIGN_PROVIDER', 'zepto')).toLowerCase() === 'brevo' ? 'brevo' : 'zepto'; }
+function campaignProvider_() { return String(prop_('CAMPAIGN_PROVIDER', 'brevo')).toLowerCase() === 'zepto' ? 'zepto' : 'brevo'; }
+function newsletterFrom_() { return prop_('NEWSLETTER_FROM', 'newsletter@' + mailDomain_()); }
 /** Send through the campaign provider (ZeptoMail or Brevo). Returns [{ok, error}] in order. */
 function campaignSend_(recipients, c) {
   const prov = campaignProvider_();
   const key = prov === 'brevo' ? prop_('BREVO_KEY') : (prop_('ZEPTO_CAMPAIGN_TOKEN') || prop_('ZEPTO_TOKEN'));
   if (!key) return recipients.map(() => ({ ok: false, error: prov === 'brevo' ? 'BREVO_KEY not set' : 'ZEPTO_TOKEN not set' }));
   const j = c.journal ? journalRow_(c.journal) : null;
-  const from = c.sender === 'editor' && j ? { email: j.editorEmail, name: j.code + ' Editors' } : j ? { email: j.noReplyEmail, name: j.code + ' · ACRI Journals' } : { email: systemFrom_(), name: 'ACRI Journals' };
+  // Every campaign comes from the single newsletter address; only the display name changes per journal.
+  const from = { email: newsletterFrom_(), name: j ? j.code + ' · ACRI Journals' : 'ACRI Journals' };
   const replyTo = j ? (c.sender === 'editor' ? j.editorEmail : j.officeEmail) : controllerEmail_();
   const api = ScriptApp.getService().getUrl();
   const reqs = recipients.map(r => {
@@ -2540,11 +2542,12 @@ const SETTINGS = [
   ['Email sending (Zoho ZeptoMail)', 'MAIL_PROVIDER', 'Workflow email', 'select', 'auto = ZeptoMail with Gmail fallback', ['auto', 'zepto', 'gmail']],
   ['Email sending (Zoho ZeptoMail)', 'ZEPTO_TOKEN', 'ZeptoMail Send Mail token', 'secret', 'Agents → SMTP/API → API'],
   ['Email sending (Zoho ZeptoMail)', 'ZEPTO_HOST', 'ZeptoMail API host', 'select', 'api.zeptomail.in for the India data centre', ['api.zeptomail.in', 'api.zeptomail.com', 'api.zeptomail.eu']],
-  ['Email sending (Zoho ZeptoMail)', 'CAMPAIGN_PROVIDER', 'Campaign email', 'select', 'zepto or brevo', ['zepto', 'brevo']],
+  ['Email sending (Zoho ZeptoMail)', 'CAMPAIGN_PROVIDER', 'Campaign email', 'select', 'brevo (recommended) or zepto', ['brevo', 'zepto']],
   ['Email sending (Zoho ZeptoMail)', 'ZEPTO_CAMPAIGN_TOKEN', 'Separate campaign agent token (optional)', 'secret', 'Leave empty to use the main token'],
   ['Email sending (Zoho ZeptoMail)', 'BREVO_KEY', 'Brevo API key (only if campaigns use Brevo)', 'secret', ''],
   ['Email addresses', 'MAIL_DOMAIN', 'Sending domain', 'text', 'Verified in ZeptoMail, e.g. journals.acriindia.org'],
   ['Email addresses', 'SYSTEM_FROM', 'System sender', 'email', 'e.g. no.reply@journals.acriindia.org'],
+  ['Email addresses', 'NEWSLETTER_FROM', 'Campaign / newsletter sender (Brevo)', 'email', 'All campaigns come from this address, e.g. newsletter@journals.acriindia.org'],
   ['Email addresses', 'CONTROLLER_EMAIL', 'Journal office (controller)', 'email', 'Replies to journal emails go here'],
   ['Email addresses', 'EDITORS_EMAIL', 'Editors address', 'email', 'Decisions and reviewer emails come from here'],
   ['Zenodo (DOIs)', 'ZENODO_TOKEN', 'Zenodo token', 'secret', 'deposit:write and deposit:actions'],

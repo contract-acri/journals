@@ -204,14 +204,16 @@ function bumpContacts_(c) {
   all_('Contacts').forEach(x => { if (sent[x.email] && (c.audience.lists || []).indexOf(x.list) >= 0) updateContact_(x, { lastSent: now_(), sentCount: (Number(x.sentCount) || 0) + 1 }); });
 }
 
-function campaignProvider_() { return String(prop_('CAMPAIGN_PROVIDER', 'zepto')).toLowerCase() === 'brevo' ? 'brevo' : 'zepto'; }
+function campaignProvider_() { return String(prop_('CAMPAIGN_PROVIDER', 'brevo')).toLowerCase() === 'zepto' ? 'zepto' : 'brevo'; }
+function newsletterFrom_() { return prop_('NEWSLETTER_FROM', 'newsletter@' + mailDomain_()); }
 /** Send through the campaign provider (ZeptoMail or Brevo). Returns [{ok, error}] in order. */
 function campaignSend_(recipients, c) {
   const prov = campaignProvider_();
   const key = prov === 'brevo' ? prop_('BREVO_KEY') : (prop_('ZEPTO_CAMPAIGN_TOKEN') || prop_('ZEPTO_TOKEN'));
   if (!key) return recipients.map(() => ({ ok: false, error: prov === 'brevo' ? 'BREVO_KEY not set' : 'ZEPTO_TOKEN not set' }));
   const j = c.journal ? journalRow_(c.journal) : null;
-  const from = c.sender === 'editor' && j ? { email: j.editorEmail, name: j.code + ' Editors' } : j ? { email: j.noReplyEmail, name: j.code + ' · ACRI Journals' } : { email: systemFrom_(), name: 'ACRI Journals' };
+  // Every campaign comes from the single newsletter address; only the display name changes per journal.
+  const from = { email: newsletterFrom_(), name: j ? j.code + ' · ACRI Journals' : 'ACRI Journals' };
   const replyTo = j ? (c.sender === 'editor' ? j.editorEmail : j.officeEmail) : controllerEmail_();
   const api = ScriptApp.getService().getUrl();
   const reqs = recipients.map(r => {

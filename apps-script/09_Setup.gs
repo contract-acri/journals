@@ -13,7 +13,7 @@ function setup() {
   });
   const def = ss.getSheetByName('Sheet1'); if (def && ss.getSheets().length > 1) ss.deleteSheet(def);
   const P = PropertiesService.getScriptProperties();
-  const defaults = { GITHUB_BRANCH: 'main', ZEPTO_HOST: 'api.zeptomail.in', ZENODO_SANDBOX: 'true', SITE_URL: 'https://acriindia.org.in', MAIL_DOMAIN: 'journals.acriindia.org', SYSTEM_FROM: 'no.reply@journals.acriindia.org', CAMPAIGN_PROVIDER: 'zepto', CONTROLLER_EMAIL: 'controller@journals.acriindia.org', EDITORS_EMAIL: 'editor@journals.acriindia.org', ADMIN_EMAILS: 'sfenilshah5283@gmail.com,president@acriindia.org', ZENODO_COMMUNITY: '', MAIL_PROVIDER: 'auto' };
+  const defaults = { GITHUB_BRANCH: 'main', ZEPTO_HOST: 'api.zeptomail.in', ZENODO_SANDBOX: 'true', SITE_URL: 'https://acriindia.org.in', MAIL_DOMAIN: 'journals.acriindia.org', SYSTEM_FROM: 'no.reply@journals.acriindia.org', CAMPAIGN_PROVIDER: 'brevo', NEWSLETTER_FROM: 'newsletter@journals.acriindia.org', CONTROLLER_EMAIL: 'controller@journals.acriindia.org', EDITORS_EMAIL: 'editor@journals.acriindia.org', ADMIN_EMAILS: 'sfenilshah5283@gmail.com,president@acriindia.org', ZENODO_COMMUNITY: '', MAIL_PROVIDER: 'auto' };
   Object.keys(defaults).forEach(k => { if (!P.getProperty(k)) P.setProperty(k, defaults[k]); });
   rootFolder_();
   seedJournals_();
