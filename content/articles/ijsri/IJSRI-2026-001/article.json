@@ -1,6 +1,7 @@
 {
   "id": "IJSRI-2026-001",
   "journal": "ijsri",
+  "status": "proof",
   "type": "Review Article",
   "subject": [
     "Environmental Studies and Sustainability"
@@ -53,12 +54,12 @@
   ],
   "received": "2026-11-22",
   "accepted": "2026-11-21T18:30:00.000Z",
-  "doi": "10.5281/zenodo.24439653",
-  "zenodo": 24439653,
+  "published": "2026-11-22",
   "volume": "",
   "issue": "",
+  "doi": "10.5281/zenodo.24439653",
+  "zenodo": 24439653,
   "license": "CC-BY-4.0",
-  "previewToken": "ndkxyzg4mwqtzwe4my00ntk4",
   "info": {
     "contributions": "",
     "conflicts": "None reported.",
@@ -66,6 +67,10 @@
     "ethics": "",
     "dataSharing": "",
     "aiUse": "",
-    "acknowledgments": ""
-  }
+    "acknowledgments": "[AUTHOR TO CONFIRM acknowledgments, if any; otherwise state “None.”]"
+  },
+  "references": [],
+  "figures": [],
+  "previewToken": "ndkxyzg4mwqtzwe4my00ntk4",
+  "ingestedAt": "2026-11-22T12:33:03.908Z"
 }
