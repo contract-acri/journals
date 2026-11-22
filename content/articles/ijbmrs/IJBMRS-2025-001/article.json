@@ -1,0 +1,50 @@
+{
+  "id": "IJBMRS-2025-001",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Case Study",
+  "subject": [],
+  "title": "Event Management and Leadership through Youth-led Initiatives: A Case Study of TEDxThaltej Youth",
+  "authors": [
+    {
+      "given": "Fenil Pritesh",
+      "family": "Shah",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "fenil.s@ahduni.edu.in",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Amrut Mody School of Management, Ahmedabad University, Ahmedabad, India"
+    }
+  ],
+  "abstract": "Youth-led initiatives play a pivotal role in fostering leadership, innovation, and community engagement. This study presents a detailed case analysis of TEDxThaltej Youth 2025, an independently organized TEDx event in Ahmedabad, India, examining how a youth-driven team manages complex event operations while upholding professionalism, ethical standards, and sustainability. Through structured leadership, cross-departmental collaboration, and digital innovation, the organizing team addressed challenges such as operational disengagement, speaker withdrawal, and communication gaps. Compliance with ISO 9001:2015, ISO 20121:2024, and the Nirmaya Foundation Green Standard (NFGS) provided frameworks for quality management, sustainable practices, and ethical governance. The study highlights actionable insights for emerging youth-led initiatives, emphasizing the importance of formalized documentation, transparent decision-making, and stakeholder engagement. Recommendations and future directions underscore the potential for scalable, sustainable, and ethically grounded models in youth-led-event-management.",
+  "keywords": [
+    "Youth-led initiatives",
+    "Event management",
+    "Leadership",
+    "TEDx",
+    "Iso 9001:2015",
+    "Iso 20121:2024",
+    "Sustainability",
+    "Ethical governance",
+    "Digital innovation",
+    "Ahmedabad"
+  ],
+  "published": "2025-12-01",
+  "volume": "1",
+  "issue": "1",
+  "firstPage": "1",
+  "lastPage": "14",
+  "doi": "",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

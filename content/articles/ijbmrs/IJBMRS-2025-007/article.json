@@ -1,0 +1,47 @@
+{
+  "id": "IJBMRS-2025-007",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Original Research",
+  "subject": [],
+  "title": "Impact of Bias on Recruitment Decision: A Study of Projects Development Institute (PRODA), Enugu",
+  "authors": [
+    {
+      "given": "Umoh Alodia",
+      "family": "Okorozoh",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "udongoumoh3@gmail.com",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Department of Public Administration, School of Business and Administration, Our Saviour Institute of Science, Agriculture & Technology (OSISATECH Polytechnic), Enugu, Nigeria"
+    }
+  ],
+  "abstract": "Recruitment is a critical function in public sector organizations, yet it remains vulnerable to various forms of bias that compromise meritocracy, equity, and institutional performance. This study investigates the nature, extent, and consequences of recruitment bias at the Projects Development Institute (PRODA), Enugu. Drawing on theories of Social Identity, Implicit Bias, and Attribution, the study adopts a mixed-methods approach, combining quantitative survey data from 175 purposively selected respondents with qualitative insights from key informant interviews. The sample size was determined using Yamane’s (1967) formula, and stratified random sampling ensured balanced representation from PRODA staff, the Federal Character Commission, the Federal Ministry of Science, Technology and Innovation, and external recruitment stakeholders. Descriptive statistics, chi-square tests, ANOVA, and regression analysis were employed to examine the relationship between perceived bias and recruitment outcomes. Findings reveal that ethnic favoritism, political interference, and personal networks (godfatherism) are perceived as dominant forms of bias influencing recruitment decisions at PRODA. Furthermore, the study confirms that such biases significantly undermine employee morale, productivity, and institutional trust. Although some mitigation strategies—such as diversity training and recruitment policies— exist, their implementation is inconsistent and largely ineffective. The study concludes that institutionalizing transparent, merit-based recruitment practices and strengthening anti-bias enforcement mechanisms are essential for restoring fairness and boosting public confidence in recruitment systems. Recommendations include the adoption of blind recruitment processes, external audit of hiring practices, and continuous training of recruitment personnel.",
+  "keywords": [
+    "Recruitment bias",
+    "Public sector",
+    "Proda",
+    "Ethnic favoritism",
+    "godfatherism",
+    "Diversity",
+    "Nigeria"
+  ],
+  "published": "2025-12-01",
+  "volume": "1",
+  "issue": "1",
+  "firstPage": "63",
+  "lastPage": "97",
+  "doi": "",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

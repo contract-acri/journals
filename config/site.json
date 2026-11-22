@@ -1,0 +1,41 @@
+{
+  "name": "ACRI Journals",
+  "tagline": "Research that builds institutions",
+  "description": "ACRI Journals is an open-access journal network publishing peer-reviewed research in business, management, education and learning futures. Part of ACRIVERSE.",
+  "url": "https://www.journals.acriindia.org",
+  "publisher": "ACRI Journals",
+  "publisherShort": "ACRI",
+  "publisherUrl": "https://www.journals.acriindia.org",
+  "location": "Ahmedabad, Gujarat, India",
+  "email": "controller@journals.acriindia.org",
+  "language": "en",
+  "defaultLicense": "CC-BY-4.0",
+  "apiUrl": "https://script.google.com/macros/s/AKfycbzAqdQclnB2tFwgdg3OYcEKv9AVYOh1TNcn0DfRMfEGK7BzCKw77Pmny4MnP94mZ_Ht/exec",
+  "doiProvider": "Zenodo",
+  "zenodoCommunity": "acri-journals",
+  "social": {},
+  "legalEntity": "Ahmedabad Centre for Research and Innovation",
+  "mailDomain": "journals.acriindia.org",
+  "systemNoReply": "no.reply@journals.acriindia.org",
+  "grievanceOfficer": "Grievance Officer, ACRI Journals",
+  "grievanceEmail": "grievance@journals.acriindia.org",
+  "privacyEmail": "privacy@journals.acriindia.org",
+  "policyVersion": "1.0",
+  "policyEffective": "2026-11-22",
+  "publisherName": "Ahmedabad Centre for Research and Innovation",
+  "publisherAddress": "",
+  "publisherPhone": "",
+  "publisherWebsite": "https://www.acriindia.org",
+  "fees": {
+    "confirmed": false,
+    "apc": 0,
+    "currency": "INR",
+    "note": ""
+  },
+  "preservation": [
+    "Zenodo (CERN)",
+    "Internet Archive"
+  ],
+  "officeEmail": "controller@journals.acriindia.org",
+  "editorsEmail": "editor@journals.acriindia.org"
+}

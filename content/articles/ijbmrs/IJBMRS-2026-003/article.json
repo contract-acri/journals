@@ -1,0 +1,46 @@
+{
+  "id": "IJBMRS-2026-003",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Original Research",
+  "subject": [],
+  "title": "Invisible Institutions: Why the Most Important Offices Are Often the Least Visible",
+  "authors": [
+    {
+      "given": "Fenil Pritesh",
+      "family": "Shah",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "fenil.s@ahduni.edu.in",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Amrut Mody School of Management, Ahmedabad University, Ahmedabad, India"
+    }
+  ],
+  "abstract": "Public trust in institutions is frequently associated with visible leadership, public communication, and symbolic responsiveness. However, many of the offices most essential to institutional credibility operate with limited public visibility and minimal performative authority. This paper examines the role of nonperformative institutional offices in sustaining long term legitimacy. Drawing on documented evidence from archival administration, revenue collection, regulatory review, and judicial administration, the study argues that invisibility functions as a structural feature rather than an institutional weakness. As demonstrated through official annual reports and oversight findings, these offices establish credibility through procedural consistency, record preservation, and technical evaluation rather than public display. Their importance becomes most evident during moments of institutional failure, when previously unnoticed systems are revealed as foundational to trust and continuity. The paper contributes to public administration and governance scholarship by reframing invisibility as a core mechanism of institutional endurance.",
+  "keywords": [
+    "institutional credibility",
+    "public administration",
+    "archival governance",
+    "regulatory oversight",
+    "bureaucratic maintenance",
+    "institutional trust"
+  ],
+  "published": "2026-01-01",
+  "volume": "2",
+  "issue": "1",
+  "firstPage": "15",
+  "lastPage": "20",
+  "doi": "10.5281/zenodo.18113184",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

@@ -1,0 +1,39 @@
+{
+  "id": "IJBMRS-2026-005",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Original Research",
+  "subject": [],
+  "title": "To What Extent Do You Believe That Artificial Intelligence Superficially and Inherently Decides Your Decisions?",
+  "authors": [
+    {
+      "given": "Urvi",
+      "family": "Shah",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "urvi.guru@gmail.com",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "FAN Advisory LLP, India"
+    }
+  ],
+  "abstract": "This qualitative research paper explores in depth the extent to which Artificial Intelligence AI both superficially and inherently influences human decision making processes. The study is grounded in the increasing presence of AI driven systems such as recommendation algorithms search engines and digital assistants that now mediate everyday choices often without users being fully aware of their influence. The central research question guiding this paper is to what extent Artificial Intelligence not only assists but also subtly and structurally shapes human decisions. To investigate this question we conducted a series of in depth semi structured interviews with participants from diverse age groups educational backgrounds and levels of technological familiarity. These interviews were designed to capture both explicit opinions about AI and implicit behavioral patterns including habits routines and reliance on AI systems in everyday situations. Participants were asked to reflect on real life scenarios such as choosing what content to watch selecting products to purchase deciding routes for travel and forming opinions based on information curated by AI systems. The findings reveal a complex and layered relationship between humans and AI. On a superficial level participants consistently described AI as a helpful and convenient tool that provides suggestions simplifies tasks and improves efficiency. Most participants expressed a strong belief that they maintain full control over their final decisions. However a deeper analysis of the interview data suggests a more embedded and inherent influence. AI systems were found to shape the range of available choices prioritize certain options and gradually influence user preferences over time through repeated exposure and personalization. Furthermore the study highlights a growing dependence on AI systems where participants often rely on recommendations without critically evaluating alternatives. Many participants also demonstrated limited awareness of how AI systems filter and prioritize information which contributes to a perceived sense of autonomy while underlying decision pathways are being influenced. In conclusion this study argues that while AI does not directly control human decisions it plays a significant role in shaping them both superficially and inherently. The influence of AI operates not only at the level of visible suggestions but also at a deeper structural level where it frames possibilities guides attention and gradually conditions behavior. This raises important questions about autonomy awareness and the evolving relationship between humans and intelligent systems.",
+  "keywords": [],
+  "published": "2026-01-01",
+  "volume": "2",
+  "issue": "1",
+  "firstPage": "37",
+  "lastPage": "43",
+  "doi": "10.5281/zenodo.19447845",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}
