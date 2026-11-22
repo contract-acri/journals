@@ -729,6 +729,8 @@ async function main() {
       fs.copyFileSync(legacy, path.join(DIST, a.pdfPath));
     } else {
       write(path.join(DIST, '_print', a.journal, a.slug + '.html'), printHtml);
+      const stored = path.join(ROOT, 'content', 'typeset', `${a.id}-${pdfHash}.pdf`);
+      if (fs.existsSync(stored)) { fs.mkdirSync(path.dirname(path.join(DIST, a.pdfPath)), { recursive: true }); fs.copyFileSync(stored, path.join(DIST, a.pdfPath)); }
       printList.push({ id: a.id, html: `/_print/${a.journal}/${a.slug}.html`, out: a.pdfPath, hash: pdfHash, title: strip(a.title), journal: a.j.name, code: a.j.code, citation: `${a.j.abbrev}. ${year(a.published)};${a.volume || ''}${a.issue ? `(${a.issue})` : ''}:${loc(a)}`, doi: a.doi || '', accent: a.j.accent });
     }
   }

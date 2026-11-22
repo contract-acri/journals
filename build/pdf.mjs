@@ -1,12 +1,13 @@
 // ACRI Journals — PDF renderer. Prints each article's print page with headless Chrome.
-// PDFs are cached by content hash in .pdfcache/ so unchanged articles are never re-rendered.
+// PDFs are stored by content hash in content/typeset/ (committed to the repository by the GitHub workflow), so
+// unchanged articles are never re-rendered and any later build, wherever it runs, can publish them.
 import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { ROOT, DIST, readJSON } from './lib.mjs';
 import { PDFDocument } from 'pdf-lib';
 
-const CACHE = path.join(ROOT, '.pdfcache');
+const CACHE = path.join(ROOT, 'content', 'typeset');
 fs.mkdirSync(CACHE, { recursive: true });
 const manifest = readJSON(path.join(DIST, '_print/manifest.json'), []);
 const site = readJSON(path.join(ROOT, 'config/site.json'));
