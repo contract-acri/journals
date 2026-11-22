@@ -243,3 +243,11 @@ Every connection key (GitHub, ZeptoMail, Zenodo, Brevo, addresses, admin emails,
 (publisher, address, phone, home-page text, fees, grievance contacts) can be changed in the portal under **Admin → Settings**.
 Keys are write-only: after saving, the portal shows only whether a key is set and its last four characters.
 Website details are written to `config/site.json` in GitHub, which rebuilds the site. "Run connection checks" runs `selfTest()`.
+
+## Letters, notices, certificates and email (Admin → Letters & email)
+
+- **Signatories:** add the Chairperson / President with a signature image (PNG). The first active signatory signs certificates.
+- **Letterhead letter / notice:** write, preview on the ACRI Journals (or a journal's) letterhead, then save: it gets a reference number (ACRIJ/2026/LTR/001), is stored in Drive (Letters & Certificates) and downloaded as PDF.
+- **Write an email:** to anyone, from the journal office, editors or system address, with files and letters from the register attached, signed by a signatory.
+- **Certificates of publication:** made automatically for every author when an article is published, attached to the "published" email, downloadable by authors in the portal and by admins for any article (including back issues).
+Run `setup()` after updating so the Signatories, Letters, Certificates and SentMail sheets are created.

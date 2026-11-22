@@ -59,6 +59,10 @@ const SCHEMA = {
   Campaigns: ['id', 'journal', 'name', 'subject', 'preheader', 'preset', 'content', 'sender', 'audience', 'status', 'scheduledAt', 'createdBy', 'created', 'updated', 'stats', 'sentAt'],
   Queue: ['id', 'campaignId', 'email', 'name', 'token', 'status', 'error', 'ts'],
   Automations: ['id', 'journal', 'type', 'name', 'enabled', 'everyDays', 'campaignId', 'endDate', 'nextRun', 'lastRun', 'config', 'updated'],
+  Signatories: ['id', 'name', 'designation', 'org', 'fileId', 'order', 'active', 'created'],
+  Letters: ['id', 'ref', 'type', 'journal', 'to', 'subject', 'body', 'signatory', 'date', 'fileId', 'createdBy', 'created'],
+  Certificates: ['id', 'articleId', 'journal', 'author', 'name', 'ref', 'fileId', 'created'],
+  SentMail: ['id', 'ts', 'by', 'from', 'to', 'cc', 'bcc', 'subject', 'body', 'attachments', 'status', 'detail'],
   Messages: ['id', 'journal', 'to', 'name', 'email', 'role', 'msId', 'subject', 'body', 'status', 'created', 'readAt', 'readBy', 'reply', 'repliedAt', 'repliedBy', 'note', 'meta'],
   Partners: ['id', 'name', 'type', 'url', 'logoUrl', 'country', 'description', 'contactName', 'contactEmail', 'contactPhone', 'journals', 'message', 'status', 'showOnSite', 'order', 'created', 'decidedAt', 'decidedBy', 'note'],
 };

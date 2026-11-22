@@ -45,10 +45,10 @@ function prod_check(p, u) {
   list.forEach(s => {
     if (s.status !== 'production') return;
     const a = ghRead_(artPath_(s) + '/article.json');
-    if (!a) { out.push({ id: s.id, ready: false }); return; }
+    if (!a) { out.push({ id: s.id, ready: false, stage: ghRead_('content/incoming/' + s.id + '/meta.json') ? 'Waiting for GitHub to convert the manuscript (check GitHub → Actions).' : 'The manuscript is not in GitHub. Click "Send to production" again.' }); return; }
     // Make sure the proof page is live before emailing.
     const live = UrlFetchApp.fetch(siteUrl_() + '/proofs/' + s.previewToken + '/', { muteHttpExceptions: true, followRedirects: true }).getResponseCode() === 200;
-    if (!live) { out.push({ id: s.id, ready: false, building: true }); return; }
+    if (!live) { out.push({ id: s.id, ready: false, building: true, stage: 'Converted. Waiting for the website to publish the proof page.' }); return; }
     update_('Submissions', 'id', s.id, { status: 'proof', updated: now_() });
     log_(s.id, 'system', 'proof_ready', 'Proofs sent to author', true);
     const sm = submitter_(s);
@@ -90,7 +90,9 @@ function prod_publish(p, u) {
   update_('Submissions', 'id', s.id, { status: 'published', published: a.published, volume: a.volume, issue: a.issue, updated: now_() });
   log_(s.id, u.id, 'published', 'Published ' + a.published + (a.volume ? ' in Vol ' + a.volume + '(' + a.issue + ')' : ' (New Online)'), true);
   const sm = submitter_(s), j = journalRow_(s.journal);
-  mailTemplate_('published', authorEmails_(s), { name: sm ? sm.given : '', title: s.title, journal: j.name, doi: s.doi, url: articleUrl_(s) }, { journal: s.journal });
+  let certs = [];
+  try { certs = certificatesFor_(s.journal, s.id, true).map(c => ({ name: c.file, b64: c.b64 })); } catch (e) { console.error('certificates', e); }
+  mailTemplate_('published', authorEmails_(s), { name: sm ? sm.given : '', title: s.title, journal: j.name, doi: s.doi, url: articleUrl_(s), certs: certs.length }, { journal: s.journal, attachments: certs });
   try { onArticlePublished_(s); } catch (e) { console.error(e); }
   return { ok: true, message: 'Published. The article will be live in about 2–4 minutes. Then register the DOI.' };
 }

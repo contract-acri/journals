@@ -693,8 +693,12 @@ async function main() {
   for (const [p, html] of policyPages()) page(p, html);
   page('/partners/', partnersPage());
   page('/contact/', contactPage());
-  for (const f of fs.existsSync(path.join(CONTENT, 'pages')) ? fs.readdirSync(path.join(CONTENT, 'pages')) : []) {
-    const { meta, html } = contentPage(path.join(CONTENT, 'pages', f));
+  // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
+  const pageFiles = {};
+  for (const dir of [path.join(ROOT, 'build', 'pages'), path.join(CONTENT, 'pages')])
+    for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) pageFiles[f] = path.join(dir, f);
+  for (const file of Object.values(pageFiles)) {
+    const { meta, html } = contentPage(file);
     page(meta.path, html, meta.sitemap !== false);
   }
   for (const j of journals) {

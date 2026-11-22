@@ -164,7 +164,8 @@ function sendMail_(to, subject, html, opts) {
     via = 'zepto';
     const body = { from: { address: opts.from || systemFrom_(), name: opts.fromName || CFG.APP }, to: list, subject: subject, htmlbody: html };
     if (opts.attachments && opts.attachments.length) body.attachments = opts.attachments.map(a => ({ name: a.name, mime_type: a.mime || 'application/pdf', content: a.b64 }));
-    if (opts.cc) body.cc = [].concat(opts.cc).filter(String).map(e => ({ email_address: { address: e } }));
+    if (opts.cc && [].concat(opts.cc).filter(String).length) body.cc = [].concat(opts.cc).filter(String).map(e => ({ email_address: { address: e } }));
+    if (opts.bcc && [].concat(opts.bcc).filter(String).length) body.bcc = [].concat(opts.bcc).filter(String).map(e => ({ email_address: { address: e } }));
     if (opts.replyTo) body.reply_to = [{ address: opts.replyTo }];
     try {
       const res = UrlFetchApp.fetch('https://' + prop_('ZEPTO_HOST', 'api.zeptomail.in') + '/v1.1/email', {
@@ -181,6 +182,7 @@ function sendMail_(to, subject, html, opts) {
     try {
       const o = { htmlBody: html, name: opts.fromName || CFG.APP, replyTo: opts.replyTo || opts.from || controllerEmail_() };
       if (opts.cc) o.cc = [].concat(opts.cc).filter(String).join(',');
+      if (opts.bcc) o.bcc = [].concat(opts.bcc).filter(String).join(',');
       if (opts.attachments && opts.attachments.length) o.attachments = opts.attachments.map(a => Utilities.newBlob(Utilities.base64Decode(a.b64), a.mime || 'application/pdf', a.name));
       MailApp.sendEmail(list.map(x => x.email_address.address).join(','), subject, String(html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(), o);
       status = 'sent'; detail = prev ? 'fallback after ' + prev : '';

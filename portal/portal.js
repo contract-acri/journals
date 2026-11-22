@@ -323,7 +323,7 @@
         ${s.flags?.finalReady ? '<div class="msg ok">Final files submitted. The editorial office will prepare your proofs.</div>' : '<button class="btn btn-green" id="finalsub">Submit final files</button>'}</div>`);
       if (s.status === 'proof') A.push(`<div class="panel"><h3>Check your proofs</h3><p style="font-size:14px">Check names, affiliations, figures, tables and references in both versions.</p><div class="actions" style="margin-top:0"><a class="btn btn-ghost" target="_blank" href="${esc(s.proofUrl)}">Web proof ↗</a><a class="btn btn-ghost" target="_blank" href="${esc(s.proofPdf)}">PDF proof ↗</a></div>
         <div class="f" style="margin-top:16px"><label>Corrections (if any)</label><textarea id="pnote" placeholder="Section, paragraph, current text → corrected text"></textarea></div><div class="actions"><button class="btn btn-green" id="papprove">Approve proofs</button><button class="btn btn-ghost" id="pcorr">Send corrections</button></div></div>`);
-      if (s.status === 'published') A.push(`<div class="panel"><h3>Published</h3><a class="btn btn-accent" target="_blank" href="${esc(s.articleUrl)}">View article ↗</a>${s.doi ? `<p class="meta" style="margin-top:10px">DOI: <a href="https://doi.org/${esc(s.doi)}">${esc(s.doi)}</a></p>` : ''}</div>`);
+      if (s.status === 'published') A.push(`<div class="panel"><h3>Published</h3><a class="btn btn-accent" target="_blank" href="${esc(s.articleUrl)}">View article ↗</a>${s.doi ? `<p class="meta" style="margin-top:10px">DOI: <a href="https://doi.org/${esc(s.doi)}">${esc(s.doi)}</a></p>` : ''}<h3 style="margin-top:18px">Certificates of publication</h3><p class="meta">Signed on the ACRI Journals letterhead, one for each author.</p><div style="display:flex;gap:8px;flex-wrap:wrap">${(s.authors || []).map((a, n) => `<button class="btn btn-ghost" data-cert="${n}">⤓ ${esc(((a.given || '') + ' ' + (a.family || '')).trim())}</button>`).join('')}</div></div>`);
       if (!['published', 'withdrawn', 'rejected', 'desk_rejected', 'production', 'proof', 'proof_approved'].includes(s.status)) A.push(`<div class="panel"><button class="mini danger" id="withdraw">Withdraw manuscript</button></div>`);
     }
     if (R === 'admin' && s.status === 'submitted') A.push(`<div class="panel"><h3>Technical check</h3><p style="font-size:14px">Check: template used, anonymised, title page complete, figures readable, references formatted, declarations complete, similarity check.</p><div class="f"><label>Note</label><textarea id="tnote" placeholder="Required when returning to the author"></textarea></div><div class="actions"><button class="btn btn-green" id="tpass">Pass → send to EIC</button><button class="btn btn-ghost" id="tret">Return to author</button></div></div>`);
@@ -352,6 +352,7 @@
     // bindings
     $$('[data-t]').forEach(b => b.onclick = () => { $$('[data-t]').forEach(x => x.classList.toggle('on', x === b)); $$('[data-p]').forEach(p => p.hidden = p.dataset.p !== b.dataset.t); });
     $$('[data-dl],[data-pdf]').forEach(b => b.onclick = () => run(b, async () => { const r = await api('file.get', { fileId: b.dataset.dl || b.dataset.pdf, pdf: !!b.dataset.pdf }); download(r.name, r.mime, r.data); }));
+    $$('[data-cert]').forEach(b => b.onclick = () => run(b, async () => { const r = await api('cert.get', { subId: id, author: Number(b.dataset.cert) }); download(r.name, r.mime, r.data); }));
     const act = (sel, fn) => $(sel)?.addEventListener('click', (e) => run(e.target, fn).then(() => vMs(id)).catch(() => { }));
     act('#tpass', () => api('ed.tech', { id, pass: true, note: $('#tnote').value }));
     act('#tret', () => api('ed.tech', { id, pass: false, note: $('#tnote').value }));
@@ -366,7 +367,7 @@
     act('#pcorr', () => api('sub.proof', { id, approve: false, note: $('#pnote').value }).then(() => toast('Corrections sent')));
     act('#reserve', () => api('prod.reserve', { id }));
     act('#psend', () => api('prod.send', { id }).then(r => toast(r.message)));
-    act('#pcheck', () => api('prod.check', { id }).then(r => toast(r.items?.[0]?.ready ? 'Proofs sent to author.' : 'Not ready yet. Build: ' + (r.build ? r.build.status + ' ' + (r.build.conclusion || '') : 'unknown'))));
+    act('#pcheck', () => api('prod.check', { id }).then(r => { const it = r.items?.[0] || {}; if (it.ready) return toast('Proofs sent to author.'); const b = r.build; const failed = b && b.conclusion === 'failure'; toast(failed ? 'The website build FAILED, so the proof was not made. Open GitHub → Actions to see why.' : (it.stage || 'Not ready yet.') + (b ? ' Build: ' + b.status + (b.conclusion ? ' / ' + b.conclusion : '') : ''), failed); if (failed && b.url) window.open(b.url, '_blank'); }));
     act('#publish', () => { if (!confirm('Publish this article now? It will be public in a few minutes.')) throw new Error('Cancelled'); return api('prod.publish', { id, volume: $('#pvol').value, issue: $('#piss').value, published: $('#pdate').value, featured: $('#pfeat').checked }).then(r => toast(r.message)); });
     act('#regdoi', () => api('prod.doi', { id }).then(r => toast('DOI registered: ' + r.doi)));
     $$('[data-rv]').forEach(b => b.onclick = () => run(b, async () => { const op = b.dataset.rv; let due; if (op === 'extend') { due = prompt('New due date (YYYY-MM-DD):'); if (!due) return; } if (op === 'cancel' && !confirm('Cancel this review?')) return; await api('ed.review', { reviewId: b.dataset.id, op, due }); toast('Done'); vMs(id); }));
@@ -459,7 +460,7 @@
   async function vAdmin(tab, q) {
     const adm = isAdmin();
     if (!adm && !eicOf().length) return go('');
-    const T = adm ? [['overview', 'Overview'], ['manuscripts', 'Manuscripts'], ['team', 'Editorial team'], ['journals', 'Journals'], ['issues', 'Issues'], ['backissues', 'Back issues'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns'], ['messages', 'Messages'], ['partners', 'Partners'], ['users', 'People'], ['settings', 'Settings']]
+    const T = adm ? [['overview', 'Overview'], ['manuscripts', 'Manuscripts'], ['team', 'Editorial team'], ['journals', 'Journals'], ['issues', 'Issues'], ['backissues', 'Back issues'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns'], ['messages', 'Messages'], ['letters', 'Letters & email'], ['partners', 'Partners'], ['users', 'People'], ['settings', 'Settings']]
       : [['messages', 'Messages'], ['team', 'Editorial team'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns']];
     if (!T.some(t => t[0] === tab)) tab = T[0][0];
     app.innerHTML = `<div class="page-h"><span class="kicker">${adm ? 'Administration' : 'Journal administration'}</span><h1 style="font:600 30px var(--serif);margin:6px 0 0">ACRI Journals admin</h1></div><div class="panel"><div class="tabs">${T.map(([k, l]) => `<button data-at="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="adm"><div class="loading">Loading…</div></div></div>`;
@@ -467,7 +468,7 @@
     const box = $('#adm');
     const J = adm ? (await api('adm.journals')).items : (await api('public.journals')).journals.filter(j => eicOf().includes(j.slug));
     const jsel = (name, val, withNet) => `<select name="${name}" class="inp" style="width:auto">${withNet ? `<option value="network" ${val === 'network' ? 'selected' : ''}>All journals (network)</option>` : ''}${J.map(j => `<option value="${j.slug}" ${val === j.slug ? 'selected' : ''}>${esc(j.code)}</option>`).join('')}</select>`;
-    const T2 = { overview: tOverview, manuscripts: tManuscripts, users: tUsers, team: tTeam, journals: tJournals, issues: tIssues, backissues: tBack, email: tEmail, partners: tPartners, indexing: tIndexing, messages: tMessages, settings: tSettings };
+    const T2 = { overview: tOverview, manuscripts: tManuscripts, users: tUsers, team: tTeam, journals: tJournals, issues: tIssues, backissues: tBack, email: tEmail, partners: tPartners, indexing: tIndexing, messages: tMessages, settings: tSettings, letters: tLetters };
     await T2[tab](box, q, J, jsel);
   }
 
@@ -794,6 +795,98 @@
       show(r, op === 'confirm' ? 'Subscription confirmed. Thank you!' : op === 'unsubscribe' ? `You have been unsubscribed from ${esc(r.lists.find(l => l.list === r.current)?.name || 'this list')}. Changed your mind? Use Resubscribe below.` : '');
     } catch (e) { app.innerHTML = `<div class="auth panel"><div class="msg err">${esc(e.message)}</div></div>`; }
   }
+  async function tLetters(box, q, J) {
+    const v = q.v || 'compose';
+    const sub = [['compose', 'Write an email'], ['letter', 'Letterhead letter / notice'], ['register', 'Letters register'], ['sent', 'Sent emails'], ['certs', 'Certificates'], ['signatories', 'Signatories']];
+    const sigs = (await api('sig.list')).items.filter(x => x.active);
+    const sigOpts = (sel) => `<option value="none">No signature</option>${sigs.map((x, i) => `<option value="${x.id}" ${(sel ? sel === x.id : i === 0) ? 'selected' : ''}>${esc(x.name)}, ${esc(x.designation)}</option>`).join('')}`;
+    const jOpts = (sel) => `<option value="">ACRI Journals (network letterhead)</option>${J.map(j => `<option value="${j.slug}" ${sel === j.slug ? 'selected' : ''}>${esc(j.code)}: ${esc(j.name)}</option>`).join('')}`;
+    const head = `<div class="tabs" style="margin:0 0 16px">${sub.map(([k, l]) => `<button data-lv="${k}" class="${v === k ? 'on' : ''}">${l}</button>`).join('')}</div>${sigs.length ? '' : '<div class="msg err">Add a signatory with a signature image first (Signatories), so letters and certificates can be signed.</div>'}`;
+    const wire = () => $$('[data-lv]', box).forEach(b => b.onclick = () => go('admin/letters?v=' + b.dataset.lv));
+    const help = '<div class="meta">Blank line = new paragraph · start a line with "- " for bullets · **bold** · *italic* · [link text](https://…)</div>';
+
+    if (v === 'compose') {
+      const reg = (await api('letter.list')).items.slice(0, 40);
+      box.innerHTML = head + `<form id="mc" class="grid2" style="gap:4px 18px">
+        <div class="f"><label>From</label><select name="from" class="inp"><option value="office">Journal office (replies → controller@)</option><option value="editor">Editors (editor@)</option><option value="system">ACRI Journals (no.reply@)</option></select></div>
+        <div class="f"><label>Journal (sets the colours and sender name)</label><select name="journal" class="inp">${jOpts(q.j)}</select></div>
+        <div class="f" style="grid-column:1/-1"><label>To (separate several with commas)</label><input name="to" class="inp" value="${esc(q.to || '')}" placeholder="issnindia.niscpr@csir.res.in"></div>
+        <div class="f"><label>Cc</label><input name="cc" class="inp"></div><div class="f"><label>Bcc</label><input name="bcc" class="inp"></div>
+        <div class="f" style="grid-column:1/-1"><label>Subject</label><input name="subject" class="inp"></div>
+        <div class="f" style="grid-column:1/-1"><label>Message</label><textarea name="body" rows="11" class="inp" placeholder="Dear Sir/Madam,"></textarea>${help}</div>
+        <div class="f"><label>Sign as</label><select name="signatory" class="inp">${sigOpts()}</select></div>
+        <div class="f"><label>Attach files from your computer</label><input type="file" name="files" multiple class="inp"></div>
+        <div class="f" style="grid-column:1/-1"><label>Attach letters from the register</label><div style="max-height:170px;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:6px 10px">${reg.length ? reg.map(l => `<label class="chk" style="font-weight:400"><input type="checkbox" data-att="${esc(l.fileId)}"> ${esc(l.ref)} · ${esc(l.subject || l.type)}</label>`).join('') : '<span class="meta">No letters yet. Create one under "Letterhead letter / notice".</span>'}</div></div>
+        <div style="grid-column:1/-1"><button class="btn btn-primary">Send email</button></div></form>`;
+      wire();
+      $('#mc').onsubmit = (e) => { e.preventDefault(); const F = e.target.elements; run(e.submitter, async () => {
+        const files = []; for (const f of F.files.files) { if (f.size > 10e6) throw new Error(f.name + ' is larger than 10 MB.'); files.push({ name: f.name, mime: f.type || 'application/octet-stream', data: await fileToB64(f) }); }
+        const r = await api('mail.compose', { from: F.from.value, journal: F.journal.value, to: F.to.value, cc: F.cc.value, bcc: F.bcc.value, subject: F.subject.value, body: F.body.value, signatory: F.signatory.value, attachments: files, letterIds: $$('[data-att]', box).filter(c => c.checked).map(c => c.dataset.att) });
+        toast(r.message, !r.ok); if (r.ok) go('admin/letters?v=sent'); }); };
+    }
+
+    if (v === 'letter') {
+      box.innerHTML = head + `<div class="lgrid"><form id="lf">
+        <div class="grid2" style="gap:4px 14px"><div class="f"><label>Type</label><select name="kind" class="inp"><option value="letter">Letter</option><option value="notice">Notice</option><option value="certificate">Certificate / to whom it may concern</option></select></div>
+        <div class="f"><label>Date</label><input type="date" name="date" class="inp" value="${new Date().toISOString().slice(0, 10)}"></div></div>
+        <div class="f"><label>Letterhead</label><select name="journal" class="inp">${jOpts()}</select></div>
+        <div class="f"><label>To (name and address, one per line)</label><textarea name="to" rows="4" class="inp" placeholder="The Head&#10;ISSN National Centre India&#10;CSIR-NIScPR, New Delhi 110067"></textarea></div>
+        <div class="f"><label>Subject</label><input name="subject" class="inp"></div>
+        <div class="f"><label>Text</label><textarea name="body" rows="12" class="inp" placeholder="Dear Sir/Madam,"></textarea>${help}</div>
+        <div class="f"><label>Signed by</label><select name="signatory" class="inp">${sigOpts()}</select></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="lprev">Preview</button><button class="btn btn-primary">Save, number and download PDF</button></div>
+        <p class="meta">Saving gives the document a reference number (e.g. ACRIJ/2026/LTR/001), stores the PDF in Drive and adds it to the register, so you can attach it to an email.</p></form>
+        <div><div class="meta" style="margin-bottom:6px">Preview</div><iframe id="lpv" style="width:100%;height:900px;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe></div></div>`;
+      wire();
+      const data = () => { const F = $('#lf').elements; return { kind: F.kind.value, date: F.date.value, journal: F.journal.value, to: F.to.value, subject: F.subject.value, body: F.body.value, signatory: F.signatory.value }; };
+      const prev = async () => { const r = await api('letter.preview', { letter: data() }); $('#lpv').srcdoc = r.html.replace('<style>', '<style>body{max-width:760px;margin:24px auto;padding:0 28px}'); };
+      $('#lprev').onclick = (e) => run(e.target, prev);
+      $('#lf').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const r = await api('letter.create', { letter: data() }); download(r.name, 'application/pdf', r.data); toast('Saved as ' + r.ref + '.'); go('admin/letters?v=register'); }); };
+      prev().catch(() => { });
+    }
+
+    if (v === 'register') {
+      const r = await api('letter.list');
+      box.innerHTML = head + (r.items.length ? `<table class="list"><thead><tr><th>Reference</th><th>Subject</th><th>To</th><th>Date</th><th></th></tr></thead><tbody>${r.items.map(l => `<tr><td><b>${esc(l.ref)}</b><div class="meta">${esc(l.type)}${l.journal ? ' · ' + esc(l.journal.toUpperCase()) : ''}</div></td><td>${esc(l.subject)}</td><td class="meta" style="white-space:pre-line">${esc(String(l.to || '').split('\n').slice(0, 2).join('\n'))}</td><td class="meta">${fmt(l.date)}</td><td><button class="btn btn-ghost" data-lf="${esc(l.fileId)}">PDF</button> <button class="btn btn-ghost" data-le="${esc(l.fileId)}">Email</button></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No letters yet.</div>');
+      wire();
+      $$('[data-lf]', box).forEach(b => b.onclick = () => run(b, async () => { const x = await api('letter.file', { fileId: b.dataset.lf }); download(x.name, x.mime, x.data); }));
+      $$('[data-le]', box).forEach(b => b.onclick = () => { go('admin/letters?v=compose'); setTimeout(() => { const c = $(`[data-att="${b.dataset.le}"]`); if (c) c.checked = true; }, 900); });
+    }
+
+    if (v === 'sent') {
+      const r = await api('mail.sent');
+      box.innerHTML = head + (r.items.length ? `<table class="list"><thead><tr><th>Subject</th><th>To</th><th>Attachments</th><th>Status</th><th>Sent</th></tr></thead><tbody>${r.items.map(m => `<tr><td><b>${esc(m.subject)}</b><div class="meta">from ${esc(m.from)} · by ${esc(m.by)}</div></td><td class="meta">${esc(m.to)}${m.cc ? '<br>cc ' + esc(m.cc) : ''}</td><td class="meta">${esc(m.attachments || '–')}</td><td>${m.status === 'sent' ? st('published', 'sent') : st('rejected', 'failed')}${m.detail ? `<div class="meta">${esc(m.detail).slice(0, 120)}</div>` : ''}</td><td class="meta">${fmtT(m.ts)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No emails sent from the portal yet.</div>');
+      wire();
+    }
+
+    if (v === 'certs') {
+      box.innerHTML = head + `<p>Certificates of publication are made automatically for every author when an article is published, attached to the "published" email, and downloadable by authors in their portal. Here you can download them for any article, including back issues.</p>
+        <form id="cf" class="grid2" style="gap:4px 14px;max-width:760px"><div class="f"><label>Journal</label><select name="journal" class="inp">${J.map(j => `<option value="${j.slug}">${esc(j.code)}</option>`).join('')}</select></div><div class="f"><label>Article ID</label><input name="id" class="inp" placeholder="IJBMRS-2026-004"></div>
+        <div style="grid-column:1/-1;display:flex;gap:8px"><button class="btn btn-primary">Show certificates</button><button type="button" class="btn btn-ghost" id="creset">Re-make (after a correction)</button></div></form><div id="cl" style="margin-top:16px"></div>`;
+      wire();
+      const val = () => { const F = $('#cf').elements; return { journal: F.journal.value, articleId: F.id.value.trim().toUpperCase() }; };
+      $('#cf').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const p = val(); const r = await api('cert.get', Object.assign({ list: true }, p)); $('#cl').innerHTML = r.items.map(x => `<button class="btn btn-ghost" data-cd="${x.author}" style="margin:0 8px 8px 0">⤓ ${esc(x.name)} <span class="meta">${esc(x.ref)}</span></button>`).join(''); $$('[data-cd]', box).forEach(b => b.onclick = () => run(b, async () => { const f = await api('cert.get', Object.assign({ author: Number(b.dataset.cd) }, p)); download(f.name, f.mime, f.data); })); }); };
+      $('#creset').onclick = (e) => run(e.target, async () => { if (!confirm('Delete and re-make the certificates for this article?')) return; await api('cert.reset', val()); toast('Done. Click "Show certificates" to make new ones.'); });
+    }
+
+    if (v === 'signatories') {
+      const r = await api('sig.list');
+      box.innerHTML = head + `<p>People who sign letters, notices and certificates. The first active signatory signs certificates of publication.</p>
+        ${r.items.map(x => `<div class="panel" style="border:1px solid var(--line);display:flex;gap:18px;align-items:center;margin-bottom:10px">${x.image ? `<img src="${x.image}" style="height:54px;max-width:200px;background:#fff">` : '<span class="meta">No signature image</span>'}<div style="flex:1"><b>${esc(x.name)}</b><div class="meta">${esc(x.designation)}${x.org ? ', ' + esc(x.org) : ''} · order ${esc(x.order || '–')}${x.active ? '' : ' · inactive'}</div></div><button class="btn btn-ghost" data-se="${x.id}">Edit</button></div>`).join('')}
+        <form id="sgf" class="panel grid2" style="border:1px solid var(--line);gap:4px 14px;margin-top:14px"><input type="hidden" name="id">
+        <div class="f"><label>Name</label><input name="name" class="inp" placeholder="Fenil Pritesh Shah"></div>
+        <div class="f"><label>Designation</label><input name="designation" class="inp" placeholder="President"></div>
+        <div class="f"><label>Organisation</label><input name="org" class="inp" value="Ahmedabad Centre for Research and Innovation"></div>
+        <div class="f"><label>Order (1 signs certificates)</label><input name="order" type="number" class="inp" value="1"></div>
+        <div class="f"><label>Signature image (PNG with transparent background, or JPG)</label><input name="img" type="file" accept="image/png,image/jpeg" class="inp"></div>
+        <div class="f"><label class="chk" style="margin-top:28px"><input type="checkbox" name="active" checked> Active</label></div>
+        <div style="grid-column:1/-1"><button class="btn btn-primary">Save signatory</button></div></form>`;
+      wire();
+      $$('[data-se]', box).forEach(b => b.onclick = () => { const x = r.items.find(y => y.id === b.dataset.se), F = $('#sgf').elements; F.id.value = x.id; F.name.value = x.name; F.designation.value = x.designation; F.org.value = x.org || ''; F.order.value = x.order || ''; F.active.checked = x.active; F.name.focus(); });
+      $('#sgf').onsubmit = (e) => { e.preventDefault(); const F = e.target.elements; run(e.submitter, async () => { const f = F.img.files[0]; await api('sig.save', { signatory: { id: F.id.value, name: F.name.value, designation: F.designation.value, org: F.org.value, order: F.order.value, active: F.active.checked, image: f ? await fileToB64(f) : '', mime: f ? f.type : '' } }); toast('Signatory saved.'); go('admin/letters?v=signatories'); }); };
+    }
+  }
+
   async function tSettings(box) {
     const r = await api('set.get');
     const groups = (list, key) => list.reduce((m, x) => ((m[x.group] = m[x.group] || []).push(x), m), {});
