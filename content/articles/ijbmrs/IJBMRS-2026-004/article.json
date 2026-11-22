@@ -1,0 +1,47 @@
+{
+  "id": "IJBMRS-2026-004",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Original Research",
+  "subject": [],
+  "title": "A Comparative Study of Bitcoin and Traditional Drivers of Nifty50 Returns in India",
+  "authors": [
+    {
+      "given": "Heet Vipulkumar",
+      "family": "Chaudhary",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "heet2210chaudhary@gmail.com",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Independent Researcher, India"
+    }
+  ],
+  "abstract": "Stock markets in emerging economies are shaped by a combination of global integration and domestic financial drivers. In recent years, modern variables such as cryptocurrencies have drawn attention as potential new determinants of equity performance. This study evaluates the comparative influence of traditional variables-Foreign Institutional Investor (FII) flows, USD/INR exchange rate, and NIFVIX-and a modern variable, Bitcoin returns, on the Nifty50 index. Monthly data spanning January 2015 to January 2025 were collected from Investing.com and Moneycontrol. Nifty50, Bitcoin, and USD/INR series were converted into log returns, while FII flows and NIFVIX were used in their original form. Correlation analysis and simple linear regression were done by using Microsoft Excel to measure associations and explanatory power. The results indicate a clear hierarchy of explanatory strength. USD/INR log returns emerged as the most influential determinant, explaining 26% of Nifty50 return variation with a strong negative relationship. NIFVIX explained 14% of the variation, also with a negative and highly significant effect. Bitcoin returns exhibited a modest but statistically significant positive effect, explaining around 8% of the variance. In contrast, both FII equity and total flows were statistically insignificant. The findings suggest that traditional variables-particularly exchange rates and volatility indicesremain dominant drivers of Indian equity returns, while modern variables such as Bitcoin are new but not yet central. The study contributes by showing one of the first systematic comparisons between traditional and modern variables in the Indian equity market context.",
+  "keywords": [
+    "Nifty50",
+    "Bitcoin Returns",
+    "Foreign Institutional Investors (FII)",
+    "USD/INR Exchange Rate",
+    "Nifvix",
+    "Traditional vs. Modern Variables",
+    "Indian Stock Market"
+  ],
+  "published": "2026-01-01",
+  "volume": "2",
+  "issue": "1",
+  "firstPage": "21",
+  "lastPage": "36",
+  "doi": "10.5281/zenodo.19447592",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

@@ -1,0 +1,59 @@
+{
+  "id": "IJBMRS-2025-011",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Original Research",
+  "subject": [],
+  "title": "Comparative Analysis of RERA and Consumer Protection Laws",
+  "authors": [
+    {
+      "given": "Abhijit Vanraj",
+      "family": "Vanjara",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "abhijeetvanzara25@gmail.com",
+      "corresponding": true
+    },
+    {
+      "given": "Hetal",
+      "family": "Parikh",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "corresponding": false
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "JG University, Ahmedabad, India"
+    }
+  ],
+  "abstract": "Two important legislative frameworks in India that are intended to protect consumers' rights, especially in the real estate industry, are the Real Estate (Regulation and Development) Act, 2016 (RERA) and the Consumer Protection Act, 2019. This paper highlights the goals, reach, and application of these two legislative processes in a comparative examination. While the Consumer Protection Act provides a more comprehensive framework for resolving consumer complaints across industries, RERA focuses on the intricacies of real estate transactions, guaranteeing accountability, transparency, and on-time project completion. The study looks at how these regulations overlap and cross, highlighting how they might work together to improve buyer protection. Judicial interpretations, seminal cases, and the efficacy of conflict settlement under both acts are also examined. The comparison method shows that the Consumer Protection Act offers adaptable and easily available forums for consumer justice, whereas RERA delivers sector-specific remedies and regulatory control. In the end, the study emphasises how various legislative frameworks must be better coordinated in order to boost customer confidence and guarantee ethical business practices in India's real estate sector.",
+  "keywords": [
+    "RERA",
+    "Consumer Protection Act",
+    "Real Estate Regulation",
+    "Consumer Rights",
+    "Legal Remedies",
+    "Housing Sector",
+    "Dispute Resolution",
+    "Judicial Interpretation",
+    "Consumer Grievance Redressal",
+    "Real Estate Law"
+  ],
+  "published": "2025-12-01",
+  "volume": "1",
+  "issue": "1",
+  "firstPage": "152",
+  "lastPage": "172",
+  "doi": "",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

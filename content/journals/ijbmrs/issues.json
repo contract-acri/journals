@@ -1,0 +1,38 @@
+[
+  {
+    "volume": 1,
+    "issue": 1,
+    "year": "2025",
+    "label": "December 2025",
+    "published": true
+  },
+  {
+    "volume": 2,
+    "issue": 1,
+    "year": "2026",
+    "label": "January 2026",
+    "published": true
+  },
+  {
+    "volume": 2,
+    "issue": 2,
+    "year": "2026",
+    "label": "March 2026",
+    "published": true
+  },
+  {
+    "volume": 2,
+    "issue": 3,
+    "year": "2026",
+    "label": "May 2026",
+    "published": false,
+    "note": "Not published"
+  },
+  {
+    "volume": 2,
+    "issue": 4,
+    "year": "2026",
+    "label": "July 2026",
+    "published": true
+  }
+]

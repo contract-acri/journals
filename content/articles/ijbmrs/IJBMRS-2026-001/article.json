@@ -1,0 +1,39 @@
+{
+  "id": "IJBMRS-2026-001",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Review Article",
+  "subject": [],
+  "title": "AI in Hiring: How Recruitment Agencies Can Stay Ahead of Traditional Hiring Models",
+  "authors": [
+    {
+      "given": "Pallavi",
+      "family": "Chawla",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "pallavi@aistalent.com",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Alliance Recruitment Agency"
+    }
+  ],
+  "abstract": "Artificial Intelligence (AI) has become a transformative force in contemporary recruitment, fundamentally altering how organizations source, screen, and select talent. As global labor markets grow increasingly competitive, AI-driven hiring systems are being adopted to address inefficiencies inherent in traditional recruitment models, including manual screening, subjectivity, and extended time-to-hire. This paper critically compares AI-enabled recruitment practices with conventional hiring methods through a structured review of existing literature, industry reports, and global recruitment trends. It examines the impact of technologies such as machine learning– based resume screening, predictive analytics, conversational chatbots, and AI-supported interviews on hiring efficiency, candidate matching, and bias reduction. The findings indicate that AI significantly enhances operational efficiency, improves sourcing quality, and supports more data-driven decision-making. However, the study also identifies limitations related to ethical concerns, transparency, contextual judgment, and the absence of human empathy in fully automated systems. The paper argues that optimal recruitment outcomes arise from a hybrid model in which AI augments, rather than replaces, human recruiters. It concludes by proposing a strategic framework for responsible AI integration in recruitment agencies.",
+  "keywords": [],
+  "published": "2026-01-01",
+  "volume": "2",
+  "issue": "1",
+  "firstPage": "1",
+  "lastPage": "12",
+  "doi": "10.5281/zenodo.18119146",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

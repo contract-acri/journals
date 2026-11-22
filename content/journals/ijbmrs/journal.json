@@ -1,0 +1,75 @@
+{
+  "slug": "ijbmrs",
+  "code": "IJBMRS",
+  "abbrev": "Int J Bus Manag Res Stud",
+  "name": "International Journal of Business and Management Research Studies",
+  "short": "IJBMRS",
+  "issn": "3139-115X",
+  "eissn": "3139-115X",
+  "accent": "#164470",
+  "accentTint": "#EEF3F8",
+  "school": "ACRI School of Business Management & Commerce (SBMC)",
+  "since": 2025,
+  "frequency": "Bi-monthly",
+  "scope": "IJBMRS publishes rigorous, policy-relevant research across business, management, entrepreneurship, finance, marketing, organisational behaviour, strategy and the Indian and global economy. The journal welcomes empirical, theoretical and review work from scholars, practitioners and early-career researchers.",
+  "subjects": [
+    "Entrepreneurship",
+    "Finance",
+    "Marketing",
+    "Organisational Behaviour",
+    "Strategy",
+    "Economics",
+    "Operations",
+    "Human Resources"
+  ],
+  "articleTypes": [
+    "Original Research",
+    "Review Article",
+    "Research Letter",
+    "Case Study",
+    "Perspective",
+    "Editorial",
+    "Book Review"
+  ],
+  "legacyUrl": "https://ijbmrs.org",
+  "editorialEmail": "controller@journals.acriindia.org",
+  "board": [
+    {
+      "role": "Chairperson",
+      "group": "Publisher & journal management",
+      "name": "Fenil Pritesh Shah",
+      "affiliation": "Ahmedabad Centre for Research and Innovation"
+    }
+  ],
+  "active": true,
+  "serialStart": {
+    "2026": 20
+  },
+  "noReplyEmail": "ijbmrs-no-reply@journals.acriindia.org",
+  "editorEmail": "editor@journals.acriindia.org",
+  "boardExtra": [
+    {
+      "role": "Chairperson",
+      "group": "Publisher & journal management",
+      "name": "Fenil Pritesh Shah",
+      "affiliation": "Ahmedabad Centre for Research and Innovation"
+    }
+  ],
+  "logoColor": "#164470",
+  "scopeType": "international",
+  "startYear": 2025,
+  "languages": [
+    "English"
+  ],
+  "formats": [
+    "Online"
+  ],
+  "subjectArea": "Business, Management and Accounting",
+  "issnOnline": "3139-115X",
+  "issnPrint": "",
+  "issnStatus": {
+    "online": "assigned",
+    "print": "not_applicable"
+  },
+  "officeEmail": "controller@journals.acriindia.org"
+}

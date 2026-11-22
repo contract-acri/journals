@@ -1,0 +1,45 @@
+{
+  "id": "IJBMRS-2025-003",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Review Article",
+  "subject": [],
+  "title": "Bridging Innovation Frontiers: How Startups and Corporations Are Redefining the Future of Business",
+  "authors": [
+    {
+      "given": "Ivan Felipe",
+      "family": "Rossetti",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "email": "drivanrossetti@gmail.com",
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Senior Legal Executive, Board Advisor, Governance & Compliance Expert"
+    }
+  ],
+  "abstract": "This paper examines how startups and established corporations are jointly shaping the future of business through open innovation frameworks, collaborative ecosystems, and sectoral convergence. The analysis explores how the agility of startups complements the institutional robustness of corporations, forming hybrid innovation models that accelerate digital transformation, ESG integration, and new governance paradigms. Drawing from secondary literature and industry reports, the article synthesizes theoretical and practical insights to advance understanding of open innovation between startups and corporations, especially within the Brazilian innovation landscape. Findings emphasize the importance of trust-based partnerships, data governance, and adaptive leadership in sustaining innovation across organizational boundaries.",
+  "keywords": [
+    "Open Innovation",
+    "Startups",
+    "ESG",
+    "Digital Transformation",
+    "Corporate Collaboration"
+  ],
+  "published": "2025-12-01",
+  "volume": "1",
+  "issue": "1",
+  "firstPage": "21",
+  "lastPage": "24",
+  "doi": "",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}

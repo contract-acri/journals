@@ -1,0 +1,59 @@
+{
+  "id": "IJBMRS-2026-006",
+  "journal": "ijbmrs",
+  "status": "published",
+  "legacy": true,
+  "legacyPdf": true,
+  "type": "Case Study",
+  "subject": [],
+  "title": "Ethical Exit in Business and Management: Degrowth, Wantlessness, and Responsible Succession",
+  "authors": [
+    {
+      "given": "Pranshav",
+      "family": "Pandya",
+      "degrees": "",
+      "affiliations": [
+        1
+      ],
+      "corresponding": true
+    },
+    {
+      "given": "Malay",
+      "family": "Patel",
+      "degrees": "",
+      "affiliations": [
+        2
+      ],
+      "corresponding": false
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Gujarat High Court, Gujarat, India"
+    },
+    {
+      "id": 2,
+      "name": "Unitedworld Institute of Design, Karnavati University, Gujarat, India"
+    }
+  ],
+  "abstract": "This research investigates voluntary degrowth as an ethical leadership strategy via a covert qualitative case study of a late-career pharmaceutical founder who implements strategic consolidation, equity repurchase, and personal austerity during the pinnacle of organisational success. Utilising degrowth economics, happiness research, wantlessness theory, and SelfDetermination Theory, the paper examines whether voluntary withdrawal and portfolio reduction can represent an elevated form of corporate social responsibility. Through thematic analysis and abductive reasoning, the study formulates a conceptual model that connects degrowth orientation, intrinsic motivation, stakeholder justice, and long-term organisational resilience. The results contest growth-oriented paradigms and propose that ethical exit, succession planning, and consolidation could improve ecological sustainability and psychological well-being. The paper ends with ideas and hypotheses that can be tested with numbers in the future.",
+  "keywords": [
+    "degrowth",
+    "wantlessness",
+    "succession planning",
+    "voluntary retirement",
+    "corporate social responsibility",
+    "minimalism",
+    "ethical leadership"
+  ],
+  "published": "2026-03-01",
+  "volume": "2",
+  "issue": "2",
+  "firstPage": "1",
+  "lastPage": "13",
+  "doi": "10.5281/zenodo.18824295",
+  "license": "CC-BY-4.0",
+  "references": [],
+  "info": {}
+}
