@@ -24,7 +24,7 @@
   "affiliations": [
     {
       "id": 1,
-      "name": "Ahmedabad University"
+      "name": "Ahmedabad University, Ahmedabad, Gujarat, India"
     }
   ],
   "abstract": {
@@ -53,7 +53,7 @@
     "India"
   ],
   "received": "2026-11-22",
-  "accepted": "2026-11-21T18:30:00.000Z",
+  "accepted": "2026-11-22",
   "published": "2026-11-22",
   "volume": "",
   "issue": "",
@@ -61,15 +61,57 @@
   "zenodo": 24439653,
   "license": "CC-BY-4.0",
   "info": {
-    "contributions": "",
-    "conflicts": "None reported.",
-    "funding": "None reported.",
-    "ethics": "",
-    "dataSharing": "",
-    "aiUse": "",
-    "acknowledgments": "[AUTHOR TO CONFIRM acknowledgments, if any; otherwise state “None.”]"
+    "contributions": "Fenil Pritesh Shah conceived the review, carried out the literature search, drafted and revised the manuscript, and approved the final version.",
+    "conflicts": "The author is Chairperson of the publisher of this journal. He took no part in the editorial handling of, or decisions on, this manuscript. No other conflicts of interest are reported.",
+    "funding": "None.",
+    "ethics": "Not applicable. This narrative review used publicly available publications and did not involve human participants, personal data or animals.",
+    "dataSharing": "Not applicable. No new data were generated or analysed. All sources are cited in the reference list.",
+    "aiUse": "Generative AI tools were used to help draft and format this manuscript. The author reviewed and revised all text, checked the factual statements and references against their sources, and takes full responsibility for the content.",
+    "acknowledgments": "None."
   },
-  "references": [],
+  "references": [
+    {
+      "text": "Ministry of Environment, Forest and Climate Change, Government of India. Parliament Question: Plastic waste in the country. Press Information Bureau. December 12, 2024. Accessed November 22, 2026. <a href=\"https://www.pib.gov.in/PressReleasePage.aspx?PRID=2083801\">https://www.pib.gov.in/PressReleasePage.aspx?PRID=2083801</a>."
+    },
+    {
+      "text": "Central Pollution Control Board. Annual Report 2022-23 on Implementation of Plastic Waste Management Rules, 2016. CPCB; 2024. <a href=\"https://cpcb.nic.in/\">https://cpcb.nic.in/</a>."
+    },
+    {
+      "text": "Singh J, Yadav BK, Schneidewind U, Krause S. Microplastics pollution in inland aquatic ecosystems of India with a global perspective on sources, composition, and spatial distribution. J Hydrol Reg Stud. 2024;53:101798. doi:10.1016/j.ejrh.2024.101798.",
+      "doi": "10.1016/j.ejrh.2024.101798"
+    },
+    {
+      "text": "Perumal K, Devi SS, Abraham KM, Kumar AB. The state of marine debris and microplastic research in India: bridging knowledge gaps for robust marine litter policy. Ocean Coast Manag. 2024;259:107418. doi:10.1016/j.ocecoaman.2024.107418.",
+      "doi": "10.1016/j.ocecoaman.2024.107418"
+    },
+    {
+      "text": "World Health Organization. Microplastics in Drinking-Water. World Health Organization; 2019. <a href=\"https://www.who.int/publications/i/item/9789241516198\">https://www.who.int/publications/i/item/9789241516198</a>."
+    },
+    {
+      "text": "Ministry of Environment, Forest and Climate Change, Government of India. Plastic Waste Management Rules, 2016. Gazette of India. March 18, 2016. As amended. <a href=\"https://www.moef.gov.in/rules-regulations-3\">https://www.moef.gov.in/rules-regulations-3</a>."
+    },
+    {
+      "text": "Ministry of Environment, Forest and Climate Change, Government of India. Plastic Waste Management (Amendment) Rules, 2021. GSR 571(E). Gazette of India. August 12, 2021. <a href=\"https://www.moef.gov.in/rules-regulations-3\">https://www.moef.gov.in/rules-regulations-3</a>."
+    },
+    {
+      "text": "Ministry of Environment, Forest and Climate Change, Government of India. Plastic Waste Management (Amendment) Rules, 2022. GSR 133(E). Gazette of India. February 16, 2022. <a href=\"https://thc.nic.in/Central%20Governmental%20Rules/Plastic%20Waste%20Management%20Rules%2C%202016.pdf\">https://thc.nic.in/Central%20Governmental%20Rules/Plastic%20Waste%20Management%20Rules%2C%202016.pdf</a>."
+    },
+    {
+      "text": "Karthikeyan P, Subagunasekar M. Microplastics pollution studies in India: a recent review of sources, abundances and research perspectives. Reg Stud Mar Sci. 2023;61:102863. doi:10.1016/j.rsma.2023.102863.",
+      "doi": "10.1016/j.rsma.2023.102863"
+    },
+    {
+      "text": "Anthony JJ, Varalakshmi SV, Kumar Sekar AK, et al. Microplastics pollution in Indian marine environment: sources, effects and solutions. Front Mar Sci. 2024;11:1512802. doi:10.3389/fmars.2024.1512802.",
+      "doi": "10.3389/fmars.2024.1512802"
+    },
+    {
+      "text": "Pokar K, Rabari V, Duggal R, et al. The estuarine plastics menace: insights into prevalence, characterization and polymeric risk assessment of microplastics in the Mahi River Estuary, Gujarat, India. Mar Pollut Bull. 2024;116936. doi:10.1016/j.marpolbul.2024.116936.",
+      "doi": "10.1016/j.marpolbul.2024.116936"
+    },
+    {
+      "text": "United Nations Environment Programme. Turning Off the Tap: How the World Can End Plastic Pollution and Create a Circular Economy. UNEP; 2023. <a href=\"https://www.unep.org/en/resources/turning-off-the-tap\">https://www.unep.org/en/resources/turning-off-the-tap</a>."
+    }
+  ],
   "figures": [],
   "previewToken": "ndkxyzg4mwqtzwe4my00ntk4",
   "ingestedAt": "2026-11-22T12:33:03.908Z"
