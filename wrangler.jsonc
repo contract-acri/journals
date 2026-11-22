@@ -1,0 +1,15 @@
+{
+  // ACRI Journals: static site served by a Cloudflare Worker (assets only, no server code).
+  // Deployed by GitHub Actions (.github/workflows/deploy.yml) after ingest, build and PDF typesetting.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "journals",
+  "compatibility_date": "2026-11-19",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
