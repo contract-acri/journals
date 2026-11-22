@@ -1,0 +1,71 @@
+{
+  "id": "IJSRI-2026-001",
+  "journal": "ijsri",
+  "type": "Review Article",
+  "subject": [
+    "Environmental Studies and Sustainability"
+  ],
+  "title": "Plastic Pollution in India: Environmental Impacts, Challenges, and Sustainable Solutions",
+  "subtitle": "A Review of Current Evidence and Strategies for a Sustainable Future",
+  "authors": [
+    {
+      "given": "Fenil Pritesh",
+      "family": "Shah",
+      "degrees": "",
+      "orcid": "",
+      "email": "fenil.s@ahduni.edu.in",
+      "affiliations": [
+        1
+      ],
+      "corresponding": true
+    }
+  ],
+  "affiliations": [
+    {
+      "id": 1,
+      "name": "Ahmedabad University"
+    }
+  ],
+  "abstract": {
+    "structured": true,
+    "sections": [
+      {
+        "heading": "Importance",
+        "text": "Plastic pollution has become a major environmental challenge in India, affecting terrestrial ecosystems, rivers, oceans, wildlife, and human communities. The widespread use of single-use plastics, inadequate waste segregation, and insufficient recycling infrastructure contribute to the accumulation of plastic waste. Understanding the causes and consequences of plastic pollution is essential for developing effective waste-management practices and promoting environmental sustainability."
+      },
+      {
+        "heading": "Observations",
+        "text": "Existing research indicates that plastic waste enters the environment through improper disposal, littering, inadequate waste collection, and the limited recycling of certain plastic materials. Plastic pollution can damage ecosystems, threaten wildlife through ingestion and entanglement, and contribute to the formation of microplastics. Rivers and urban drainage systems can transport plastic waste into aquatic environments. Government initiatives, recycling programmes, plastic restrictions, public awareness campaigns, and sustainable alternatives offer possible approaches to reducing this problem. However, their effectiveness depends on public participation, proper implementation, and improved waste-management infrastructure."
+      },
+      {
+        "heading": "Conclusions and Relevance",
+        "text": "Plastic pollution requires coordinated action from individuals, communities, industries, and governments. Strengthening waste segregation, reducing unnecessary plastic consumption, improving recycling systems, and encouraging reusable alternatives can help minimise environmental damage. Environmental education and community participation are particularly important in creating long-term behavioural change. This review highlights the importance of sustainable consumption and responsible waste management in building a cleaner and healthier environment in India."
+      }
+    ]
+  },
+  "keywords": [
+    "Plastic pollution",
+    "Environmental sustainability",
+    "Waste management",
+    "Microplastics",
+    "Recycling",
+    "India"
+  ],
+  "received": "2026-11-22",
+  "accepted": "2026-11-21T18:30:00.000Z",
+  "doi": "10.5281/zenodo.24439653",
+  "zenodo": 24439653,
+  "volume": "",
+  "issue": "",
+  "license": "CC-BY-4.0",
+  "previewToken": "ndkxyzg4mwqtzwe4my00ntk4",
+  "info": {
+    "contributions": "",
+    "conflicts": "None reported.",
+    "funding": "None reported.",
+    "ethics": "",
+    "dataSharing": "",
+    "aiUse": "",
+    "acknowledgments": ""
+  }
+}
