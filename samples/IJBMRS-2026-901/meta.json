@@ -1,5 +1,0 @@
-{"journal":"ijbmrs","id":"IJBMRS-2026-901","type":"Original Research","subject":["Entrepreneurship"],
-"authors":[{"given":"Sample","family":"Author","degrees":"PhD","orcid":"0000-0002-1825-0097","email":"author@example.org","affiliations":[1],"corresponding":true},{"given":"Second","family":"Author","degrees":"MBA","affiliations":[1,2]},{"given":"Third","family":"Contributor","degrees":"MSc","affiliations":[2]}],
-"affiliations":[{"id":1,"name":"ACRI School of Business Management & Commerce, Ahmedabad, Gujarat, India"},{"id":2,"name":"Department of Example Studies, Example University, Ahmedabad, India"}],
-"received":"2026-08-02","accepted":"2026-10-14","published":"2026-11-20","volume":"3","issue":"1","doi":"10.5281/zenodo.0000000",
-"info":{"contributions":"Concept and design: Author S, Author S. Analysis: Contributor T. Drafting: all authors.","conflicts":"None reported.","funding":"None.","dataSharing":"Synthetic data are available from the corresponding author.","aiUse":"No generative AI tools were used."}}
