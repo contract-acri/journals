@@ -1,0 +1,70 @@
+name: Build and deploy ACRI Journals
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      CHROME_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pandoc
+        run: |
+          wget -q https://github.com/jgm/pandoc/releases/download/3.6.4/pandoc-3.6.4-1-amd64.deb
+          sudo dpkg -i pandoc-3.6.4-1-amd64.deb
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      # 1. Convert any manuscripts the editorial office sent to production (content/incoming/<ID>/)
+      - name: Ingest manuscripts
+        run: node build/ingest.mjs
+
+      - name: Save converted articles to the repository
+        run: |
+          if [ -n "$(git status --porcelain content)" ]; then
+            git config user.name  "ACRI Journals bot"
+            git config user.email "journals@acriindia.org"
+            git add -A content
+            git commit -m "Convert manuscripts to articles [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      # 2. Build the static site and typeset PDFs (cached: unchanged articles are not re-rendered)
+      - uses: actions/cache@v4
+        with:
+          path: .pdfcache
+          key: pdf-${{ github.run_id }}
+          restore-keys: pdf-
+
+      - name: Build site
+        run: node build/build.mjs
+
+      - name: Typeset PDFs
+        run: node build/pdf.mjs
+
+      # 3. Publish to Cloudflare (Worker "journals" with static assets; settings in wrangler.jsonc)
+      - name: Deploy to Cloudflare
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
