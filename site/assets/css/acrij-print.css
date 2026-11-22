@@ -1,0 +1,76 @@
+/* ACRI Journals — PDF / print standard v1.0
+   A4, 18mm outer margins, Lora 9.6pt body in two columns, Inter for apparatus.
+   Running header/footer are injected by the PDF renderer (build/pdf.mjs). */
+@page{size:A4;margin:20mm 16mm 18mm 16mm}
+@page :first{margin-top:12mm}
+html{font-size:9.6pt}
+body{margin:0;font-family:var(--serif);color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff}
+a{color:inherit;text-decoration:none}
+.pdf-top{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2.4pt solid var(--accent);padding-bottom:7pt;margin-bottom:14pt}
+.pdf-top .jn{font:700 10.5pt/1.15 var(--sans);letter-spacing:.02em;color:var(--accent)}
+.pdf-top .jn small{display:block;font:500 7.4pt/1.3 var(--sans);color:#555;letter-spacing:.02em;margin-top:2pt}
+.pdf-top .net{display:flex;align-items:center;gap:6pt;color:var(--navy)}
+.pdf-top .net b{font:700 13pt/1 var(--serif)}
+.pdf-top .net i{width:1pt;height:11pt;background:var(--green);display:block}
+.pdf-top .net span{font:600 5.6pt/1 var(--sans);letter-spacing:.34em}
+.pdf-type{font:700 8pt/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:7pt}
+.pdf-title{font:600 19pt/1.18 var(--serif);margin:0 0 4pt;letter-spacing:-.005em}
+.pdf-subtitle{font:italic 12pt/1.3 var(--serif);color:#333;margin:0 0 8pt}
+.pdf-authors{font:10pt/1.45 var(--sans);margin:8pt 0 4pt}
+.pdf-authors sup{font-size:6.5pt}
+.pdf-affil{font:7.6pt/1.45 var(--sans);color:#444;margin:0 0 10pt;padding:0;list-style:none}
+.pdf-affil sup{font-size:6pt;margin-right:2pt}
+.pdf-grid{display:grid;grid-template-columns:52mm 1fr;gap:6mm;margin:4pt 0 12pt;padding-top:10pt;border-top:.6pt solid #CCC}
+.pdf-info{font:7.3pt/1.45 var(--sans);color:#333}
+.pdf-info div{margin-bottom:6pt}
+.pdf-info b{display:block;font:700 6.6pt/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:1pt}
+.pdf-info .lic svg{width:62pt;display:block;margin-top:3pt}
+.pdf-abs{background:var(--accent-tint);border-top:1.6pt solid var(--accent);padding:9pt 11pt 6pt;font:9.2pt/1.5 var(--serif)}
+.pdf-abs h2{font:700 7.6pt/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;margin:0 0 6pt;color:var(--accent)}
+.pdf-abs p{margin:0 0 5pt;text-align:justify;hyphens:auto}
+.pdf-abs .ah{font:700 8.4pt var(--sans)}
+.pdf-kw{font:7.8pt/1.45 var(--sans);margin:6pt 0 2pt;color:#333}
+.pdf-kw b{color:var(--accent)}
+.pdf-kp{border:.6pt solid #CCC;border-left:2pt solid var(--accent);padding:7pt 10pt;margin:0 0 10pt;font:8.2pt/1.45 var(--sans)}
+.pdf-kp h2{font:700 7.4pt/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 5pt}
+.pdf-kp p{margin:0 0 3pt}
+.pdf-body{columns:2;column-gap:7mm;font:9.6pt/1.46 var(--serif);text-align:justify;hyphens:auto;orphans:3;widows:3}
+.pdf-body h2{font:700 10pt/1.25 var(--sans);color:var(--accent);margin:12pt 0 4pt;break-after:avoid;text-align:left;letter-spacing:.01em;border:0;padding:0}
+.pdf-body h2:first-child{margin-top:0}
+.pdf-body h3{font:700 9pt/1.3 var(--sans);margin:9pt 0 3pt;break-after:avoid;text-align:left}
+.pdf-body h4{font:italic 600 9pt/1.3 var(--serif);margin:7pt 0 2pt;break-after:avoid}
+.pdf-body p{margin:0;text-indent:1.2em}
+.pdf-body h2+p,.pdf-body h3+p,.pdf-body h4+p,.pdf-body .fig+p,.pdf-body .tbl+p,.pdf-body ul+p,.pdf-body ol+p,.pdf-body blockquote+p{text-indent:0}
+.pdf-body ul,.pdf-body ol{margin:3pt 0;padding-left:14pt}
+.pdf-body blockquote{margin:5pt 0;padding-left:8pt;border-left:1.2pt solid var(--accent);font-style:italic}
+.pdf-body sup{font-size:6.4pt;font-family:var(--sans)}
+.pdf-body .fig,.pdf-body .tbl{break-inside:avoid;margin:8pt 0 10pt;text-indent:0;text-align:left}
+.pdf-body .fig.wide,.pdf-body .tbl.wide{column-span:all}
+.pdf-body .fig .fh,.pdf-body .tbl .fh{font:8pt/1.35 var(--sans);margin:0 0 4pt}
+.pdf-body .fig .fh b,.pdf-body .tbl .fh b{color:var(--accent);font-weight:700}
+.pdf-body .fig img{display:block;max-width:100%;max-height:120mm;margin:0 auto 4pt}
+.pdf-body .fig .fc{font:7.4pt/1.4 var(--sans);color:#333}
+.pdf-body table{border-collapse:collapse;width:100%;font:7.2pt/1.3 var(--sans);border-top:1pt solid #111;border-bottom:1pt solid #111}
+.pdf-body th,.pdf-body td{padding:2.4pt 4pt;text-align:left;vertical-align:top}
+.pdf-body thead th{border-bottom:.6pt solid #111;font-weight:700}
+.pdf-body tbody tr:nth-child(even){background:#F4F5F7}
+.pdf-body .tbl .fn{font:6.6pt/1.35 var(--sans);color:#444;margin-top:3pt}
+.pdf-body .eq{text-align:center;margin:5pt 0}
+.pdf-end{columns:2;column-gap:7mm;margin-top:12pt;padding-top:8pt;border-top:.6pt solid #CCC}
+.pdf-end h2{font:700 8.4pt/1.25 var(--sans);color:var(--accent);margin:0 0 4pt;column-span:all;letter-spacing:.06em;text-transform:uppercase}
+.pdf-ainfo{font:7.4pt/1.45 var(--sans);color:#222}
+.pdf-ainfo p{margin:0 0 4pt}
+.pdf-refs{margin-top:10pt;padding-top:8pt;border-top:.6pt solid #CCC}
+.pdf-refs h2{font:700 8.4pt/1.25 var(--sans);color:var(--accent);margin:0 0 5pt;letter-spacing:.06em;text-transform:uppercase}
+.pdf-refs ol{columns:2;column-gap:7mm;margin:0;padding-left:16pt;font:7pt/1.4 var(--sans);color:#222}
+.pdf-refs li{margin:0 0 2.5pt;break-inside:avoid;word-break:break-word}
+.pdf-legacy{font:9pt var(--sans)}
+/* neutralise web "card" styling for figures/tables inside the PDF */
+.pdf-body .fig,.pdf-body .tbl{border:0;border-radius:0;background:none;overflow:visible}
+.pdf-body .fig .fh,.pdf-body .tbl .fh{background:none;border:0;padding:0}
+.pdf-body .fig .fi{padding:0;display:block;background:none}
+.pdf-body .fig .fi img{max-height:95mm;width:auto;cursor:default}
+.pdf-body .fig .fc{padding:0}
+.pdf-body .tbl .fn{padding:0}
+.pdf-body .tbl .scroll{overflow:visible}
+.pdf-body .fig{border-top:.6pt solid #CCC;border-bottom:.6pt solid #CCC;padding:5pt 0}
