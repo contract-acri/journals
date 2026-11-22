@@ -1,7 +1,7 @@
 {
   "id": "IJSRI-2026-001",
   "journal": "ijsri",
-  "status": "proof",
+  "status": "published",
   "type": "Review Article",
   "subject": [
     "Environmental Studies and Sustainability"
@@ -113,6 +113,6 @@
     }
   ],
   "figures": [],
-  "previewToken": "ndkxyzg4mwqtzwe4my00ntk4",
-  "ingestedAt": "2026-11-22T12:33:03.908Z"
+  "ingestedAt": "2026-11-22T12:33:03.908Z",
+  "featured": false
 }
