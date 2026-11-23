@@ -413,3 +413,17 @@ button{font:inherit}
 .pil p{font-size:14.5px;color:var(--ink-2);margin:0;line-height:1.55}
 @media (max-width:980px){.intro .wrap{grid-template-columns:1fr;gap:36px;padding-top:52px;padding-bottom:52px}.intro h1{font-size:40px}.pgrid{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.intro h1{font-size:33px}.pgrid{grid-template-columns:1fr}.hstat b{font-size:30px}}
+
+/* AES error codes page */
+.aes-err{width:100%;border-collapse:collapse;margin-top:12px}
+.aes-err td{border-top:1px solid var(--line);padding:14px 10px;vertical-align:top;font-size:15px}
+.aes-err td:first-child{width:150px;white-space:nowrap}
+.aes-err code{font:600 13px ui-monospace,Menlo,Consolas,monospace;background:#FDECEC;color:#B42318;border-radius:5px;padding:2px 7px}
+.aes-err p{margin:4px 0 0;color:var(--ink-2)}
+.aes-err .fix{color:var(--ink)}
+.aes-err tr:target{background:#FFF8E6}
+@media (max-width:640px){.aes-err td:first-child{width:auto;white-space:normal}}
+
+/* board member photos */
+.person .pph{display:block;width:76px;height:76px;border-radius:50%;object-fit:cover;margin:0 0 12px;border:3px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.person span,.person a{overflow-wrap:anywhere}

@@ -47,7 +47,7 @@ function seedJournals_() {
 
 /** Run once to check every integration and log what is missing. */
 function selfTest() {
-  const r = {};
+  const r = { aes: AES.NAME + ' ' + AES.VERSION + ' (' + AES.FULL + ')' };
   r.sheet = !!ss_().getSheetByName('Submissions');
   r.drive = safe_(() => rootFolder_().getName());
   r.github = safe_(() => gh_('get', '').full_name);

@@ -41,6 +41,7 @@ function updateContact_(c, patch) {
   const cur = s.getRange(c._row, 1, 1, h.length).getValues()[0];
   h.forEach((k, i) => { if (patch.hasOwnProperty(k)) cur[i] = encode_(k, patch[k]); });
   s.getRange(c._row, 1, 1, h.length).setValues([cur]);
+  dbDirty_('Contacts');
 }
 /** Preference centre behind every email's unsubscribe link. */
 function public_emailPrefs(p) {
@@ -91,13 +92,13 @@ function mail_import(p, u) {
     rows.push(SCHEMA.Contacts.map(k => encode_(k, { email: email, name: name, list: p.list, status: 'subscribed', token: token_(), source: 'import by ' + u.email, consent: p.consent + ' (' + now_() + ')', tags: (p.tags || '').split(/[;,]/).map(s => s.trim()).filter(Boolean), created: now_(), updated: now_(), sentCount: 0 }[k])));
     added++;
   });
-  if (rows.length) { const s = sh_('Contacts'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Contacts.length).setValues(rows); }
+  if (rows.length) { dbDirty_('Contacts'); const s = sh_('Contacts'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Contacts.length).setValues(rows); }
   return { ok: true, added: added, revived: revived, skipped: skipped, note: 'People who unsubscribed earlier were not re-added.' };
 }
 function mail_setContact(p, u) {
   mailScope_(u, p.list !== 'network' ? p.list : null);
   const c = contactRow_(normEmail_(p.email), p.list); need_(c, 'Contact not found.');
-  if (p.remove) { sh_('Contacts').deleteRow(c._row); return { ok: true }; }
+  if (p.remove) { dbDirty_('Contacts'); sh_('Contacts').deleteRow(c._row); return { ok: true }; }
   updateContact_(c, { status: p.status || c.status, name: p.name !== undefined ? p.name : c.name, updated: now_() });
   return { ok: true };
 }
@@ -173,7 +174,7 @@ function campaignTick() {
       if (c.status === 'scheduled' && new Date(c.scheduledAt) <= new Date()) {
         const rec = audienceOf_(c);
         const rows = rec.map(r => SCHEMA.Queue.map(k => encode_(k, { id: uid_('Q'), campaignId: c.id, email: r.email, name: r.name, token: r.token, status: 'queued', ts: now_() }[k])));
-        if (rows.length) { const s = sh_('Queue'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Queue.length).setValues(rows); }
+        if (rows.length) { dbDirty_('Queue'); const s = sh_('Queue'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Queue.length).setValues(rows); }
         update_('Campaigns', 'id', c.id, { status: 'sending', stats: { total: rows.length, sent: 0, failed: 0 } });
       }
     });
@@ -182,6 +183,7 @@ function campaignTick() {
     const qs = sh_('Queue'), q = all_('Queue');
     sending.forEach(c => {
       const mine = q.filter(x => x.campaignId === c.id && x.status === 'queued');
+      dbDirty_('Queue');
       if (c.status === 'stopped') { mine.forEach(x => qs.getRange(x._row, SCHEMA.Queue.indexOf('status') + 1).setValue('cancelled')); return; }
       const stats = c.stats || { total: 0, sent: 0, failed: 0 };
       for (let i = 0; i < mine.length && Date.now() - t0 < 240000; i += 40) {
@@ -193,6 +195,7 @@ function campaignTick() {
           r.ok ? stats.sent++ : stats.failed++;
         });
       }
+      dbDirty_('Queue');
       const left = all_('Queue').filter(x => x.campaignId === c.id && x.status === 'queued').length;
       update_('Campaigns', 'id', c.id, { stats: stats, status: left ? 'sending' : 'sent', sentAt: left ? '' : now_() });
       if (!left) bumpContacts_(c);

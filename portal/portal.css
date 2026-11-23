@@ -109,3 +109,19 @@ textarea.code{min-height:360px}
 @media (max-width:1000px){.lgrid{grid-template-columns:1fr}}
 .grid2{display:grid;grid-template-columns:1fr 1fr}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
+
+/* AES: soft loading, progress bar, error codes */
+#aesbar{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,#1F7A4D,#3DBE7E);z-index:10000;opacity:0;transition:width .3s ease,opacity .4s ease}
+#aesbar.on{opacity:1;width:70%;transition:width 8s cubic-bezier(.1,.6,.2,1),opacity .2s}
+.papp>*{animation:aesIn .28s ease both}
+@keyframes aesIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.papp .loading{color:transparent!important;position:relative;min-height:220px;border-radius:12px;background:linear-gradient(90deg,#EEF1F5 0,#F7F9FB 40%,#EEF1F5 80%);background-size:300% 100%;animation:aesShimmer 1.3s ease-in-out infinite;margin:24px 0}
+.papp .loading::before,.papp .loading::after{content:"";position:absolute;left:24px;right:40%;height:16px;top:28px;border-radius:6px;background:#E2E6EC}
+.papp .loading::after{top:60px;right:20%;height:12px}
+@keyframes aesShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+.aescode{display:inline-block;font:600 11px/1.6 ui-monospace,Menlo,Consolas,monospace;background:#FDECEC;color:#B42318;border-radius:5px;padding:0 6px;text-decoration:none}
+.errpanel .meta b{font-family:ui-monospace,Menlo,Consolas,monospace}
+.ptag b{color:var(--navy);letter-spacing:.08em}
+.aesfoot{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font:12px var(--sans);color:var(--muted);padding:26px 0 34px;border-top:1px solid var(--line);margin-top:40px}
+.aesfoot a{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.papp>*,.papp .loading{animation:none}}

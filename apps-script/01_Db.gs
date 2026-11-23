@@ -20,7 +20,15 @@ function encode_(k, v) {
   return v;
 }
 
+/** Rows are read from a sheet once per request and then served from memory (a fresh copy each time).
+ *  Every write clears that table's copy, so reads after a write always see the new data. */
+let DBC_ = {};
+function dbDirty_(table) { if (table) delete DBC_[table]; else DBC_ = {}; }
 function all_(table) {
+  if (!DBC_[table]) DBC_[table] = JSON.stringify(readAll_(table));
+  return JSON.parse(DBC_[table]);
+}
+function readAll_(table) {
   const s = sh_(table), v = s.getDataRange().getValues();
   const h = v.shift();
   return v.filter(r => r.some(c => c !== '')).map((r, i) => {
@@ -33,11 +41,13 @@ function where_(table, fn) { return all_(table).filter(fn); }
 function find_(table, key, val) { return all_(table).find(r => String(r[key]) === String(val)) || null; }
 
 function insert_(table, obj) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table];
   s.appendRow(h.map(k => encode_(k, obj[k])));
   return obj;
 }
 function update_(table, key, val, patch) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table];
   const col = h.indexOf(key) + 1;
   const keys = s.getRange(2, col, Math.max(s.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
@@ -50,6 +60,7 @@ function update_(table, key, val, patch) {
   const o = {}; h.forEach((k, j) => o[k] = decode_(k, cur[j])); return o;
 }
 function remove_(table, key, val) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table], col = h.indexOf(key) + 1;
   const keys = s.getRange(2, col, Math.max(s.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
   for (let i = keys.length - 1; i >= 0; i--) if (keys[i] === String(val)) s.deleteRow(i + 2);

@@ -84,3 +84,19 @@ function me_tools(p, u) {
   const me = find_('Users', 'id', u.id);
   return { ok: true, journals: js.map(s => { const j = journalRow_(s); return { slug: s, code: j.code, name: j.name }; }), hasSignature: !!me.signatureFileId, signature: me.signatureFileId ? imgFromFile_(me.signatureFileId) : '' };
 }
+
+/** Board member photo: a small square JPEG prepared in the browser, published with the website. */
+function savePhoto_(userId, ph) {
+  need_(/jpe?g|png|webp/i.test(ph.mime || ''), 'The photo must be a JPG or PNG image.');
+  const bytes = Utilities.base64Decode(ph.data); need_(bytes.length < 1.5 * 1024 * 1024, 'The photo is too large. Please use a smaller image.');
+  const name = String(userId).toLowerCase().replace(/[^a-z0-9]/g, '') + '.jpg';
+  if (prop_('GITHUB_TOKEN')) ghCommit_([{ path: 'content/people/' + name, bytes: bytes }], 'Board photo: ' + userId);
+  return '/assets/people/' + name + '?v=' + Date.now().toString(36);
+}
+/** Anyone with an active board role can change their own photo later from their profile. */
+function me_photo(p, u) {
+  need_(isAdmin_(u) || myJournals_(u).length, 'Photos are for editorial board members.');
+  update_('Users', 'id', u.id, { photo: p.data ? savePhoto_(u.id, p) : '' });
+  myJournals_(u).forEach(s => { try { syncBoard_(s); } catch (e) { } });
+  return { ok: true, message: 'Photo saved. The board page updates in a few minutes.' };
+}

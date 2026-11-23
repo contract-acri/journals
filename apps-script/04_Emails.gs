@@ -11,7 +11,7 @@ function emailShell_(accent, journalName, inner) {
     '<tr><td style="height:4px;background:' + accent + '"></td></tr>' +
     '<tr><td style="padding:30px 28px 10px;font-size:15px;line-height:1.6">' + inner + '</td></tr>' +
     '<tr><td style="padding:18px 28px 26px;font-size:12px;color:#5E6875;border-top:1px solid #EEF0F3">' +
-    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · This message was sent by the ACRI Journals editorial system.</td></tr>' +
+    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · Sent by AES, the ACRI Editorial System.</td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 function btn_(href, label, accent) { return '<p style="margin:22px 0"><a href="' + href + '" style="background:' + (accent || '#0B2545') + ';color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">' + label + '</a></p>'; }

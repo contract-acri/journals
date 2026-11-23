@@ -560,7 +560,7 @@ function boardPage(j) {
   const MG = 'Publisher & journal management';
   const groups = {}; for (const p of j.board || []) (groups[p.group || p.role] ||= []).push(p);
   const keys = Object.keys(groups).sort((a, b) => (a === MG) - (b === MG));
-  const card = (p) => `<div class="person"><span class="role">${esc(p.role)}</span><b>${esc(p.name)}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}<span>${esc(p.affiliation || '')}</span>${p.address ? `<span>${esc(p.address)}</span>` : ''}${p.email ? `<span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}${p.profile ? `<span><a href="${esc(p.profile)}" rel="noopener">Institutional profile ↗</a></span>` : ''}${p.orcid ? `<span><a href="https://orcid.org/${esc(p.orcid)}">${ORCID} ${esc(p.orcid)}</a></span>` : ''}${p.since ? `<span>Serving since ${esc(p.since)}</span>` : ''}</div>`;
+  const card = (p) => `<div class="person${p.photo ? ' has-photo' : ''}">${p.photo ? `<img class="pph" src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" width="84" height="84">` : ''}<span class="role">${esc(p.role)}</span><b>${esc(p.name)}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}<span>${esc(p.affiliation || '')}</span>${p.address ? `<span>${esc(p.address)}</span>` : ''}${p.email ? `<span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}${p.profile ? `<span><a href="${esc(p.profile)}" rel="noopener">Institutional profile ↗</a></span>` : ''}${p.orcid ? `<span><a href="https://orcid.org/${esc(p.orcid)}">${ORCID} ${esc(p.orcid)}</a></span>` : ''}${p.since ? `<span>Serving since ${esc(p.since)}</span>` : ''}</div>`;
   return layout({ j, title: 'Editorial Board', canonical: BASE + `/journals/${j.slug}/editorial-board/`, body: `<div class="wrap page"><div class="page-h"><span class="kicker">${esc(j.code)}</span><h1>Editorial Board</h1><p>The editors set the journal's direction, handle manuscripts and uphold its standards of review. Every editor has agreed to serve, signs the <a href="/policies/editorial-independence/">ACRI Journals Editorial Agreement</a> and serves a fixed term. The board is reviewed at least once a year.</p></div>
   ${keys.map(r => `<section class="toc-sec"><h2>${esc(r)}</h2><div class="board" style="margin-top:18px">${groups[r].map(card).join('')}</div></section>`).join('') || '<p class="meta">The editorial board is being appointed.</p>'}
   <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo().name)}${pubInfo().address ? ', ' + esc(pubInfo().address) : ''}${pubInfo().phone ? ' · Phone: ' + esc(pubInfo().phone) : ''}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
@@ -597,6 +597,14 @@ function journalAuthors(j) {
 }
 
 // Static content pages (network) come from /content/pages/*.html with a front-matter line.
+function aesErrorsPage() {
+  const E = readJSON(path.join(ROOT, 'config/aes-errors.json'), { groups: [] });
+  return layout({ title: 'AES error codes', canonical: BASE + '/aes/errors/', desc: 'Error codes of AES, the ACRI Editorial System, with what each one means and how to fix it.', body: `<div class="wrap page narrow"><div class="page-h"><span class="kicker">${esc(E.name)} · ${esc(E.fullName)} · version ${esc(E.version)}</span><h1>Error codes</h1><p>When something goes wrong in the editorial portal, AES shows a short code such as <code>AES-GH-401</code>. Find it below to see what happened and how to fix it. Codes for system faults also come with a reference (for example <code>E261124-7KQ2A</code>), which the journal office can look up in the error log.</p>
+  <p class="meta">How to read a code: <b>AES</b>, then the area (AUTH sign-in, LINK personal links, VAL forms, GH website publishing, ZEN DOIs, MAIL email, SRV / SHEET / DRIVE server and storage, NET / UI / CFG your browser), then a number. Numbers in the 400s are usually fixable by you; 500s are system faults.</p></div>
+  ${E.groups.map(g => `<section class="toc-sec"><h2 id="${esc(g.id)}">${esc(g.title)}</h2><table class="aes-err"><tbody>${g.codes.map(c => `<tr id="${esc(c.code)}"><td><code>${esc(c.code)}</code></td><td><b>${esc(c.title)}</b><p>${esc(c.meaning)}</p><p class="fix"><b>What to do:</b> ${esc(c.fix)}</p></td></tr>`).join('')}</tbody></table></section>`).join('')}
+  <p class="meta" style="margin-top:30px">Still stuck? <a href="/contact/">Contact the editorial office</a> and include the code and reference.</p></div>`, head: '<meta name="robots" content="noindex">' });
+}
+
 function contactPage() {
   const P = pubInfo();
   const jopts = journals.map(j => `<option value="${j.slug}">${esc(j.code)}: ${esc(j.name)}</option>`).join('');
@@ -670,6 +678,7 @@ async function main() {
   fs.rmSync(DIST, { recursive: true, force: true });
   copyDir(path.join(ROOT, 'site'), DIST);
   copyDir(path.join(ROOT, 'portal'), path.join(DIST, 'portal'));
+  copyDir(path.join(CONTENT, 'people'), path.join(DIST, 'assets', 'people'));
   for (const j of journals) {
     const out = path.join(DIST, 'assets/journals', j.slug); fs.mkdirSync(out, { recursive: true });
     for (const f of ['logo.png', 'mark.png', 'logo-white.png', 'mark-white.png', 'logo.svg', 'mark.svg']) { const src = path.join(CONTENT, 'journals', j.slug, f); if (fs.existsSync(src)) fs.copyFileSync(src, path.join(out, f)); }
@@ -693,6 +702,7 @@ async function main() {
   for (const [p, html] of policyPages()) page(p, html);
   page('/partners/', partnersPage());
   page('/contact/', contactPage());
+  page('/aes/errors/', aesErrorsPage(), false);
   // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
   const pageFiles = {};
   for (const dir of [path.join(ROOT, 'build', 'pages'), path.join(CONTENT, 'pages')])

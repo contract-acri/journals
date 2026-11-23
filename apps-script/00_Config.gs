@@ -22,6 +22,9 @@
  *   BREVO_KEY         Brevo API key (v3), only if CAMPAIGN_PROVIDER = brevo
  */
 
+/** AES: the ACRI Editorial System. Bump the version with every code update. */
+const AES = { NAME: 'AES', FULL: 'ACRI Editorial System', VERSION: '2.0.0' };
+
 const CFG = {
   APP: 'ACRI Journals',
   PUBLISHER: 'ACRI Journals',
@@ -44,7 +47,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -64,6 +67,7 @@ const SCHEMA = {
   Certificates: ['id', 'articleId', 'journal', 'author', 'name', 'ref', 'fileId', 'created'],
   SentMail: ['id', 'ts', 'by', 'from', 'to', 'cc', 'bcc', 'subject', 'body', 'attachments', 'status', 'detail'],
   Recommendations: ['id', 'journal', 'kind', 'name', 'email', 'affiliation', 'url', 'note', 'by', 'byName', 'status', 'created', 'updated', 'handledBy'],
+  Errors: ['ref', 'ts', 'code', 'action', 'message', 'user', 'detail'],
   Messages: ['id', 'journal', 'to', 'name', 'email', 'role', 'msId', 'subject', 'body', 'status', 'created', 'readAt', 'readBy', 'reply', 'repliedAt', 'repliedBy', 'note', 'meta'],
   Partners: ['id', 'name', 'type', 'url', 'logoUrl', 'country', 'description', 'contactName', 'contactEmail', 'contactPhone', 'journals', 'message', 'status', 'showOnSite', 'order', 'created', 'decidedAt', 'decidedBy', 'note'],
 };

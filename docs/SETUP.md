@@ -262,3 +262,13 @@ Expired links show a clear message; use Resend to issue a new link with a fresh 
 
 Board members get "Editor tools": letters on their journal's letterhead ("From the desk of …", signed with their own signature), their letters register, recommendations of authors / reviewers / board members / papers (reviewed by the office in Editorial team → Recommendations), and their signature.
 Reviewing preferences are respected when editors invite reviewers (pause dates and maximum reviews at a time), and each reviewer's due date follows the days they chose.
+
+## AES (ACRI Editorial System) 2.0.0
+
+The editorial backend and portal are called AES. The version is in `apps-script/00_Config.gs` (AES.VERSION) and shown in the portal footer.
+Errors carry codes (AES-AREA-NUMBER) explained at /aes/errors/ (source: config/aes-errors.json). System faults also get a reference such as E261124-7KQ2A and are listed in Admin → Settings → Error log (the Errors sheet).
+
+## Board onboarding links
+
+Invite with just an email and role (Editorial team → Appoint, or the CSV import). The person fills in their own name, photo, details, reviewing preferences, signature and password from their personal link.
+Use "Copy link" or "WhatsApp" on a pending appointment to share the link yourself. Photos are published to the board page (content/people/).

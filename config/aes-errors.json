@@ -1,0 +1,50 @@
+{
+  "name": "AES",
+  "fullName": "ACRI Editorial System",
+  "version": "2.0.0",
+  "groups": [
+    { "id": "AUTH", "title": "Signing in and permissions", "codes": [
+      { "code": "AES-AUTH-401", "title": "Session expired", "meaning": "You were signed out, usually after 12 hours or after signing in somewhere else.", "fix": "Sign in again. Your work that was already saved is safe." },
+      { "code": "AES-AUTH-403", "title": "Not allowed", "meaning": "Your account does not have the role this action needs (for example, only the Editor-in-Chief can record decisions, only admins can publish).", "fix": "Check you are signed in with the right account. If you should have access, ask the journal office to check your appointment or admin flag." },
+      { "code": "AES-AUTH-410", "title": "Wrong email or password", "meaning": "The email and password do not match an account.", "fix": "Check for typing errors, or use Forgot password. Admins can reset a password from Apps Script with setPassword()." },
+      { "code": "AES-AUTH-412", "title": "Email not verified", "meaning": "The account exists but its email address has not been confirmed.", "fix": "Click the verification link in your email. A new one is sent each time you try to sign in." }
+    ]},
+    { "id": "LINK", "title": "Personal links", "codes": [
+      { "code": "AES-LINK-404", "title": "Link not valid", "meaning": "The link is wrong, was already used, or was replaced by a newer email.", "fix": "Use the most recent email. If it still fails, ask the journal office (contact form) to send a new link." },
+      { "code": "AES-LINK-410", "title": "Link expired", "meaning": "Agreement, reset and invitation links are valid for a limited time (24 hours to 30 days).", "fix": "Ask the journal office to resend it. Admins: Editorial team → Resend, and choose how many days the new link lasts." }
+    ]},
+    { "id": "VAL", "title": "Information missing or not valid", "codes": [
+      { "code": "AES-VAL-422", "title": "Please check the form", "meaning": "Something required is missing or in the wrong format. The message says exactly what.", "fix": "Correct the field named in the message and try again." },
+      { "code": "AES-VAL-409", "title": "Not possible at this stage", "meaning": "The manuscript, appointment or campaign is at a stage where this action is not allowed (for example, editing a submitted manuscript or sending a campaign twice).", "fix": "Refresh the page to see the current stage. Some actions are only available to the editorial office." }
+    ]},
+    { "id": "GH", "title": "Website publishing (GitHub)", "codes": [
+      { "code": "AES-GH-401", "title": "GitHub token not accepted", "meaning": "The GitHub token is missing, wrong or expired, so AES cannot update the website.", "fix": "Admin → Settings → GitHub: paste a new fine-grained token (Contents: read and write, Actions: read-only)." },
+      { "code": "AES-GH-404", "title": "Repository or file not found", "meaning": "The repository name is wrong, the token does not include that repository, or a file AES expected is missing.", "fix": "Admin → Settings: check the repository is owner/name (e.g. contract-acri/journals) and that the token covers it." },
+      { "code": "AES-GH-409", "title": "GitHub was busy with another change", "meaning": "Two changes reached GitHub at the same moment.", "fix": "Wait a few seconds and try again." },
+      { "code": "AES-GH-500", "title": "GitHub error", "meaning": "GitHub returned an unexpected error.", "fix": "Try again in a minute. If it repeats, check githubstatus.com and the error log in Admin → Settings." },
+      { "code": "AES-SITE-424", "title": "Website build not finished", "meaning": "The step needs the website to be updated first (for example the proof page or PDF is not live yet).", "fix": "Wait 3–5 minutes and check GitHub → Actions. A red build means the website could not be updated." }
+    ]},
+    { "id": "ZEN", "title": "DOIs (Zenodo)", "codes": [
+      { "code": "AES-ZEN-401", "title": "Zenodo token not accepted", "meaning": "The Zenodo token is missing, wrong, from the sandbox instead of zenodo.org (or the other way round), or lacks deposit permissions.", "fix": "Admin → Settings → Zenodo: paste a token with deposit:write and deposit:actions, and check the Mode setting." },
+      { "code": "AES-ZEN-400", "title": "Zenodo rejected the details", "meaning": "One of the article details was refused by Zenodo. The message gives Zenodo's reason.", "fix": "Correct the article details (Edit article source) and register again." },
+      { "code": "AES-ZEN-404", "title": "PDF or deposit not found", "meaning": "AES could not find the article PDF, or the reserved Zenodo deposit no longer exists.", "fix": "Make sure the website build finished and the PDF opens. If the deposit was deleted on Zenodo, reserve a new DOI." },
+      { "code": "AES-ZEN-500", "title": "Zenodo error", "meaning": "Zenodo returned an unexpected error or is under maintenance.", "fix": "Try again later. Check status on zenodo.org." }
+    ]},
+    { "id": "MAIL", "title": "Email", "codes": [
+      { "code": "AES-MAIL-401", "title": "Email service key not accepted", "meaning": "The ZeptoMail or Brevo key is missing or wrong.", "fix": "Admin → Settings → Email sending: paste the correct key, then Send me a test email." },
+      { "code": "AES-MAIL-422", "title": "Email refused", "meaning": "The email service refused the message, usually because the sender address or domain is not verified.", "fix": "Verify the sending domain and sender address in ZeptoMail (workflow) or Brevo (campaigns)." },
+      { "code": "AES-MAIL-429", "title": "Daily email limit reached", "meaning": "The Gmail fallback or the email service has hit its daily limit.", "fix": "Connect ZeptoMail, or wait until tomorrow." }
+    ]},
+    { "id": "SRV", "title": "Server and storage", "codes": [
+      { "code": "AES-SRV-429", "title": "Server busy", "meaning": "Google Apps Script is handling too many requests or took too long. AES already retried automatically.", "fix": "Wait a moment and click Try again." },
+      { "code": "AES-SHEET-404", "title": "Database sheet missing", "meaning": "A sheet AES needs does not exist yet, usually after an update.", "fix": "In Apps Script, run setup() once." },
+      { "code": "AES-DRIVE-404", "title": "File not found in Drive", "meaning": "A manuscript, letter or signature file was moved, deleted or is not accessible.", "fix": "Check the ACRI Journals folder in Google Drive, or upload the file again." },
+      { "code": "AES-SYS-500", "title": "Unexpected error", "meaning": "Something went wrong that AES does not recognise.", "fix": "Note the reference number and send it to the admin. Admins can find it in Admin → Settings → Error log." }
+    ]},
+    { "id": "NET", "title": "In your browser", "codes": [
+      { "code": "AES-NET-001", "title": "Cannot reach AES", "meaning": "Your connection dropped, or the server did not answer after three tries.", "fix": "Check your internet connection and click Try again." },
+      { "code": "AES-UI-001", "title": "Page did not load completely", "meaning": "The page finished loading in an unexpected state, often after clicking away very quickly.", "fix": "AES reloads the page once automatically. If it repeats, click Try again or refresh with Ctrl+Shift+R." },
+      { "code": "AES-CFG-001", "title": "Portal not connected", "meaning": "The portal does not know the address of the AES server.", "fix": "Set ACRIJ_API in /portal/index.html to the Apps Script web app URL." }
+    ]}
+  ]
+}

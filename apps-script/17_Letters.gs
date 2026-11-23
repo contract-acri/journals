@@ -71,6 +71,7 @@ function letterheadHtml_(opt) {
     (opt.to ? '<div style="margin-top:18px;white-space:pre-line">' + esc_(opt.to) + '</div>' : '') +
     (opt.subject ? '<p style="margin:18px 0 14px' + (opt.kind === 'notice' ? ';text-align:center' : '') + '"><b>' + (opt.kind === 'notice' ? '' : 'Subject: ') + esc_(opt.subject) + '</b></p>' : '<div style="height:12px"></div>') +
     '<div>' + (opt.bodyHtml || '') + '</div>' + sigBlock +
+    (opt.fromDesk ? '<p style="margin-top:26px;font-family:Arial,sans-serif;font-size:9.5px;line-height:1.5;color:#5E6875;border-left:2px solid #C9CED5;padding:4px 10px">The views expressed in this letter are those of ' + esc_(opt.fromDesk.name) + ' in their capacity as a member of the editorial board, and do not necessarily represent the views of ' + esc_(j ? j.name : 'the journal') + ', ACRI Journals or ' + esc_(P.name) + '.</p>' : '') +
     '<div style="margin-top:40px;border-top:1px solid #E2E5E9;padding-top:8px;font-family:Arial,sans-serif;font-size:8.5px;color:#8A939F;text-align:center">ACRI Journals is published by ' + esc_(P.name) + ' · ' + esc_(P.web) + (opt.ref ? ' · Verify this document by quoting ' + esc_(opt.ref) + ' to ' + esc_(P.email) : '') + '</div>' +
     '</body></html>';
 }

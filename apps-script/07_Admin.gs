@@ -71,7 +71,7 @@ function adm_saveIssue(p, u) {
   const ex = where_('Issues', x => x.journal === i.journal && String(x.volume) === String(i.volume) && String(x.issue) === String(i.issue))[0];
   const newlyPublished = i.status === 'published' && (!ex || ex.status !== 'published');
   const sh = sh_('Issues');
-  if (ex) sh.getRange(ex._row, 1, 1, SCHEMA.Issues.length).setValues([SCHEMA.Issues.map(k => encode_(k, i[k]))]); else insert_('Issues', i);
+  if (ex) { sh.getRange(ex._row, 1, 1, SCHEMA.Issues.length).setValues([SCHEMA.Issues.map(k => encode_(k, i[k]))]); dbDirty_('Issues'); } else insert_('Issues', i);
   const list = where_('Issues', x => x.journal === i.journal).map(x => ({ volume: Number(x.volume), issue: Number(x.issue), year: x.year, label: x.label, title: x.title, pdf: x.pdf, published: x.status === 'published' }));
   ghCommit_([{ path: 'content/journals/' + i.journal + '/issues.json', text: JSON.stringify(list, null, 2) }], 'Issues: ' + i.journal + ' ' + i.volume + '(' + i.issue + ')');
   if (newlyPublished && !i.silent) try { onIssuePublished_(i.journal, i.volume, i.issue, i.label); } catch (e) { console.error(e); }

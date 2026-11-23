@@ -1,5 +1,5 @@
 /**
- * ACRI Journals — Editorial Management System (Google Apps Script)
+ * AES · ACRI Editorial System (Google Apps Script) — version 2.0.0
  * ONE FILE: paste into Code.gs (replace everything). Manifest: appsscript.json. Run setup() once,
  * set the Script Properties, then run syncJournalsFromRepo() and selfTest().
  */
@@ -31,6 +31,9 @@
  *   BREVO_KEY         Brevo API key (v3), only if CAMPAIGN_PROVIDER = brevo
  */
 
+/** AES: the ACRI Editorial System. Bump the version with every code update. */
+const AES = { NAME: 'AES', FULL: 'ACRI Editorial System', VERSION: '2.0.0' };
+
 const CFG = {
   APP: 'ACRI Journals',
   PUBLISHER: 'ACRI Journals',
@@ -53,7 +56,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -73,6 +76,7 @@ const SCHEMA = {
   Certificates: ['id', 'articleId', 'journal', 'author', 'name', 'ref', 'fileId', 'created'],
   SentMail: ['id', 'ts', 'by', 'from', 'to', 'cc', 'bcc', 'subject', 'body', 'attachments', 'status', 'detail'],
   Recommendations: ['id', 'journal', 'kind', 'name', 'email', 'affiliation', 'url', 'note', 'by', 'byName', 'status', 'created', 'updated', 'handledBy'],
+  Errors: ['ref', 'ts', 'code', 'action', 'message', 'user', 'detail'],
   Messages: ['id', 'journal', 'to', 'name', 'email', 'role', 'msId', 'subject', 'body', 'status', 'created', 'readAt', 'readBy', 'reply', 'repliedAt', 'repliedBy', 'note', 'meta'],
   Partners: ['id', 'name', 'type', 'url', 'logoUrl', 'country', 'description', 'contactName', 'contactEmail', 'contactPhone', 'journals', 'message', 'status', 'showOnSite', 'order', 'created', 'decidedAt', 'decidedBy', 'note'],
 };
@@ -140,7 +144,15 @@ function encode_(k, v) {
   return v;
 }
 
+/** Rows are read from a sheet once per request and then served from memory (a fresh copy each time).
+ *  Every write clears that table's copy, so reads after a write always see the new data. */
+let DBC_ = {};
+function dbDirty_(table) { if (table) delete DBC_[table]; else DBC_ = {}; }
 function all_(table) {
+  if (!DBC_[table]) DBC_[table] = JSON.stringify(readAll_(table));
+  return JSON.parse(DBC_[table]);
+}
+function readAll_(table) {
   const s = sh_(table), v = s.getDataRange().getValues();
   const h = v.shift();
   return v.filter(r => r.some(c => c !== '')).map((r, i) => {
@@ -153,11 +165,13 @@ function where_(table, fn) { return all_(table).filter(fn); }
 function find_(table, key, val) { return all_(table).find(r => String(r[key]) === String(val)) || null; }
 
 function insert_(table, obj) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table];
   s.appendRow(h.map(k => encode_(k, obj[k])));
   return obj;
 }
 function update_(table, key, val, patch) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table];
   const col = h.indexOf(key) + 1;
   const keys = s.getRange(2, col, Math.max(s.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
@@ -170,6 +184,7 @@ function update_(table, key, val, patch) {
   const o = {}; h.forEach((k, j) => o[k] = decode_(k, cur[j])); return o;
 }
 function remove_(table, key, val) {
+  dbDirty_(table);
   const s = sh_(table), h = SCHEMA[table], col = h.indexOf(key) + 1;
   const keys = s.getRange(2, col, Math.max(s.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
   for (let i = keys.length - 1; i >= 0; i--) if (keys[i] === String(val)) s.deleteRow(i + 2);
@@ -206,7 +221,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -579,7 +594,7 @@ function emailShell_(accent, journalName, inner) {
     '<tr><td style="height:4px;background:' + accent + '"></td></tr>' +
     '<tr><td style="padding:30px 28px 10px;font-size:15px;line-height:1.6">' + inner + '</td></tr>' +
     '<tr><td style="padding:18px 28px 26px;font-size:12px;color:#5E6875;border-top:1px solid #EEF0F3">' +
-    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · This message was sent by the ACRI Journals editorial system.</td></tr>' +
+    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · Sent by AES, the ACRI Editorial System.</td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 function btn_(href, label, accent) { return '<p style="margin:22px 0"><a href="' + href + '" style="background:' + (accent || '#0B2545') + ';color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">' + label + '</a></p>'; }
@@ -1281,7 +1296,7 @@ function adm_saveIssue(p, u) {
   const ex = where_('Issues', x => x.journal === i.journal && String(x.volume) === String(i.volume) && String(x.issue) === String(i.issue))[0];
   const newlyPublished = i.status === 'published' && (!ex || ex.status !== 'published');
   const sh = sh_('Issues');
-  if (ex) sh.getRange(ex._row, 1, 1, SCHEMA.Issues.length).setValues([SCHEMA.Issues.map(k => encode_(k, i[k]))]); else insert_('Issues', i);
+  if (ex) { sh.getRange(ex._row, 1, 1, SCHEMA.Issues.length).setValues([SCHEMA.Issues.map(k => encode_(k, i[k]))]); dbDirty_('Issues'); } else insert_('Issues', i);
   const list = where_('Issues', x => x.journal === i.journal).map(x => ({ volume: Number(x.volume), issue: Number(x.issue), year: x.year, label: x.label, title: x.title, pdf: x.pdf, published: x.status === 'published' }));
   ghCommit_([{ path: 'content/journals/' + i.journal + '/issues.json', text: JSON.stringify(list, null, 2) }], 'Issues: ' + i.journal + ' ' + i.volume + '(' + i.issue + ')');
   if (newlyPublished && !i.silent) try { onIssuePublished_(i.journal, i.volume, i.issue, i.label); } catch (e) { console.error(e); }
@@ -1331,9 +1346,9 @@ const PRIVATE = {
   'mail.lists': mail_lists, 'mail.contacts': mail_contacts, 'mail.import': mail_import, 'mail.setContact': mail_setContact,
   'mail.campaigns': mail_campaigns, 'mail.save': mail_saveCampaign, 'mail.preview': mail_preview, 'mail.test': mail_test, 'mail.audience': mail_audience,
   'mail.send': mail_send, 'mail.stop': mail_stop, 'mail.duplicate': mail_duplicate, 'mail.automations': mail_automations, 'mail.saveAutomation': mail_saveAutomation,
-  'msg.list': msg_list, 'msg.update': msg_update, 'set.get': set_get, 'set.save': set_save, 'set.test': set_test,
+  'msg.list': msg_list, 'msg.update': msg_update, 'err.list': err_list, 'set.get': set_get, 'set.save': set_save, 'set.test': set_test,
   'sig.list': sig_list, 'sig.save': sig_save, 'letter.preview': letter_preview, 'letter.create': letter_create, 'letter.list': letter_list, 'letter.file': letter_file,
-  'team.import': team_import, 'rec.submit': rec_submit, 'rec.list': rec_list, 'rec.update': rec_update, 'me.signature': me_signature, 'me.tools': me_tools,
+  'team.import': team_import, 'rec.submit': rec_submit, 'rec.list': rec_list, 'rec.update': rec_update, 'me.signature': me_signature, 'me.tools': me_tools, 'me.photo': me_photo,
   'cert.get': cert_get, 'cert.reset': cert_reset, 'mail.compose': mail_compose, 'mail.sent': mail_sent,
   'partner.list': partner_list, 'partner.save': partner_save,
   'idx.readiness': idx_readiness, 'idx.tick': idx_tick, 'idx.pack': idx_issnPack, 'idx.stage': idx_issnStage, 'adm.logo': adm_logo,
@@ -1352,16 +1367,38 @@ function doPost(e) {
     return json_({ ok: false, error: 'Unknown action.' });
   } catch (err) {
     const m = String(err && err.message || err);
-    if (m === 'AUTH') return json_({ ok: false, auth: false, error: 'Your session has expired. Please sign in again.' });
-    console.error(p.action, m, err && err.stack);
-    return json_({ ok: false, error: m });
+    if (m === 'AUTH') return json_({ ok: false, auth: false, code: 'AES-AUTH-401', error: 'Your session has expired. Please sign in again.' });
+    const code = aesCode_(m), ref = 'E' + Utilities.formatDate(new Date(), 'Asia/Kolkata', 'yyMMdd') + '-' + uid_().slice(0, 5).toUpperCase();
+    console.error(code, ref, p.action, m, err && err.stack);
+    // User mistakes (forms, permissions) are not logged; system faults are, so admins can trace them by reference.
+    if (!/^AES-(VAL|AUTH|LINK)-/.test(code)) { try { insert_('Errors', { ref: ref, ts: now_(), code: code, action: p.action || '', message: m.slice(0, 500), user: (p.token ? 'signed-in' : 'public'), detail: String(err && err.stack || '').slice(0, 1500) }); } catch (e) { } }
+    return json_({ ok: false, error: m, code: code, ref: ref });
   }
 }
+/** Map an error message to an AES error code (catalogue: /aes/errors/ on the website). */
+function aesCode_(m) {
+  const R = [
+    [/Incorrect email or password/i, 'AES-AUTH-410'], [/verify your email/i, 'AES-AUTH-412'],
+    [/expired on|link (has )?expired|reset link has expired/i, 'AES-LINK-410'], [/link is invalid|invalid or has|already been used|has been replaced/i, 'AES-LINK-404'],
+    [/GitHub 401|GitHub 403|Bad credentials/i, 'AES-GH-401'], [/GitHub 404/i, 'AES-GH-404'], [/GitHub (409|422)/i, 'AES-GH-409'], [/GitHub \d{3}/i, 'AES-GH-500'],
+    [/Zenodo (401|403)/i, 'AES-ZEN-401'], [/Zenodo (400|422)/i, 'AES-ZEN-400'], [/Zenodo 404|PDF could not be found/i, 'AES-ZEN-404'], [/Zenodo/i, 'AES-ZEN-500'],
+    [/not live yet|wait for the (website )?build|site build/i, 'AES-SITE-424'],
+    [/ZeptoMail 401|BREVO_KEY|ZEPTO_TOKEN|unauthori[sz]ed/i, 'AES-MAIL-401'], [/ZeptoMail 4\d\d|sender|not verified/i, 'AES-MAIL-422'], [/daily (email )?(quota|limit)|Service invoked too many times for one day: email/i, 'AES-MAIL-429'],
+    [/Missing sheet/i, 'AES-SHEET-404'], [/No item with the given ID|DriveApp|Access denied: Drive/i, 'AES-DRIVE-404'],
+    [/too many times|timed out|Exceeded maximum execution|Lock|Service (Spreadsheets|unavailable)|try again later/i, 'AES-SRV-429'],
+    [/permission|not allowed|admins only|only (an |the )?(admin|editor|editorial)|editorial office only|not your/i, 'AES-AUTH-403'],
+    [/can no longer|already (submitted|signed|invited|responded)|not awaiting|is not (sending|active|open)|only drafts|at this stage|cannot be (edited|withdrawn|changed)/i, 'AES-VAL-409'],
+    [/^(please|enter|choose|add|write|upload|set|check|this |the |name|title|journal|slug|code|password|article id|repository|.+ (is|are) (required|not valid|too large))/i, 'AES-VAL-422'],
+  ];
+  for (const [re, c] of R) if (re.test(m)) return c;
+  return 'AES-SYS-500';
+}
+function err_list(p, u) { need_(isAdmin_(u), 'Admins only.'); return { ok: true, items: all_('Errors').map(x => { delete x._row; return x; }).reverse().slice(0, 100) }; }
 function doGet(e) {
   if (e && e.parameter && e.parameter.lu) { oneClickUnsub_(e.parameter.lu); return HtmlService.createHtmlOutput('<p style="font-family:sans-serif">You have been unsubscribed. <a href="' + portalUrl_('email?t=' + encodeURIComponent(e.parameter.lu)) + '" target="_top">Manage email preferences</a></p>'); }
-  return json_({ ok: true, service: CFG.APP + ' EMS', time: now_() });
+  return json_({ ok: true, service: AES.NAME + ' · ' + AES.FULL, version: AES.VERSION, time: now_() });
 }
-function json_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function json_(o) { o.aes = AES.VERSION; return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
 // ======================================================================
 // 09_Setup.gs
@@ -1415,7 +1452,7 @@ function seedJournals_() {
 
 /** Run once to check every integration and log what is missing. */
 function selfTest() {
-  const r = {};
+  const r = { aes: AES.NAME + ' ' + AES.VERSION + ' (' + AES.FULL + ')' };
   r.sheet = !!ss_().getSheetByName('Submissions');
   r.drive = safe_(() => rootFolder_().getName());
   r.github = safe_(() => gh_('get', '').full_name);
@@ -1521,7 +1558,7 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
+    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
 function syncBoard_(slug) {
@@ -1585,7 +1622,7 @@ function team_list(p, u) {
   const items = all_('Appointments').filter(a => !p.journal || a.journal === p.journal).map(a => {
     const x = users[a.userId] || {};
     return { id: a.id, journal: a.journal, role: a.role, roleLabel: roleLabel_(a), title: a.title, start: String(a.start).slice(0, 10), end: String(a.end).slice(0, 10), status: a.status, signedAt: a.signedAt, signedName: a.signedName, showOnSite: String(a.showOnSite) !== 'false', order: a.order,
-      name: (x.given + ' ' + x.family).trim(), email: x.email, affiliation: x.affiliation, agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason };
+      name: (x.given + ' ' + x.family).trim() || x.email, email: x.email, affiliation: x.affiliation, link: a.status === 'pending' ? portalUrl_('agreement?token=' + a.token) : '', expires: a.expires || '', agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason };
   }).sort((a, b) => a.journal.localeCompare(b.journal) || ROLES[a.role].rank - ROLES[b.role].rank || String(b.start).localeCompare(String(a.start)));
   return { ok: true, items: items, roles: ROLES };
 }
@@ -1600,9 +1637,8 @@ function team_appoint(p, u) {
     const days = [1, 3, 7, 14, 30].indexOf(Number(p.days)) >= 0 ? Number(p.days) : 7;
     let x = find_('Users', 'email', email), setPw = '';
     if (!x) {
-      need_(p.given && p.family, 'Enter the person\'s first and last name (they do not have an account yet).');
       const t = token_();
-      x = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
+      x = insert_('Users', { id: uid_('U'), email: email, given: p.given || '', family: p.family || '', degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
       setPw = portalUrl_('reset?token=' + t);
     }
     need_(!where_('Appointments', a => a.userId === x.id && a.journal === p.journal && a.role === p.role && ['pending', 'active'].indexOf(a.status) >= 0 && String(a.end) >= p.start).length, 'This person already has this role for an overlapping term.');
@@ -1615,7 +1651,7 @@ function team_appoint(p, u) {
 }
 function sendAppointment_(a, x, j, setPw) {
   const exp = a.expires ? Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy, h:mm a') + ' IST' : '';
-  mailTemplate_('appoint', x.email, { name: x.given, role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
+  mailTemplate_('appoint', x.email, { name: x.given || 'Colleague', role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
 }
 function team_resend(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
@@ -1681,7 +1717,7 @@ function appt_(token) {
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
-    profile: { degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
@@ -1689,9 +1725,16 @@ function agreement_sign(p) {
   need_(p.agree === true, 'Please confirm that you agree to the terms.');
   const x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   const typed = String(p.name || '').trim().replace(/\s+/g, ' ');
-  need_(typed.length >= 3 && typed.toLowerCase().indexOf(String(x.family).toLowerCase()) >= 0, 'Please type your full name, including "' + x.family + '", as your signature.');
+  const famName = String((p.profile && p.profile.family) || x.family || '').trim();
+  need_(typed.length >= 3 && (!famName || typed.toLowerCase().indexOf(famName.toLowerCase()) >= 0), 'Please type your full name' + (famName ? ', including "' + famName + '",' : '') + ' as your signature.');
   // Confirm the member's public board details (ISSN India / indexers need them), reviewing preferences and password.
   const pr = p.profile || {}, prof = {};
+  if (pr.given !== undefined || pr.family !== undefined) {
+    need_(String(pr.given || '').trim() && String(pr.family || '').trim(), 'Please enter your first and last name as they should appear on the board page.');
+    prof.given = String(pr.given).trim(); prof.family = String(pr.family).trim();
+  }
+  if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
+  if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
   if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
@@ -1802,6 +1845,7 @@ function updateContact_(c, patch) {
   const cur = s.getRange(c._row, 1, 1, h.length).getValues()[0];
   h.forEach((k, i) => { if (patch.hasOwnProperty(k)) cur[i] = encode_(k, patch[k]); });
   s.getRange(c._row, 1, 1, h.length).setValues([cur]);
+  dbDirty_('Contacts');
 }
 /** Preference centre behind every email's unsubscribe link. */
 function public_emailPrefs(p) {
@@ -1852,13 +1896,13 @@ function mail_import(p, u) {
     rows.push(SCHEMA.Contacts.map(k => encode_(k, { email: email, name: name, list: p.list, status: 'subscribed', token: token_(), source: 'import by ' + u.email, consent: p.consent + ' (' + now_() + ')', tags: (p.tags || '').split(/[;,]/).map(s => s.trim()).filter(Boolean), created: now_(), updated: now_(), sentCount: 0 }[k])));
     added++;
   });
-  if (rows.length) { const s = sh_('Contacts'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Contacts.length).setValues(rows); }
+  if (rows.length) { dbDirty_('Contacts'); const s = sh_('Contacts'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Contacts.length).setValues(rows); }
   return { ok: true, added: added, revived: revived, skipped: skipped, note: 'People who unsubscribed earlier were not re-added.' };
 }
 function mail_setContact(p, u) {
   mailScope_(u, p.list !== 'network' ? p.list : null);
   const c = contactRow_(normEmail_(p.email), p.list); need_(c, 'Contact not found.');
-  if (p.remove) { sh_('Contacts').deleteRow(c._row); return { ok: true }; }
+  if (p.remove) { dbDirty_('Contacts'); sh_('Contacts').deleteRow(c._row); return { ok: true }; }
   updateContact_(c, { status: p.status || c.status, name: p.name !== undefined ? p.name : c.name, updated: now_() });
   return { ok: true };
 }
@@ -1934,7 +1978,7 @@ function campaignTick() {
       if (c.status === 'scheduled' && new Date(c.scheduledAt) <= new Date()) {
         const rec = audienceOf_(c);
         const rows = rec.map(r => SCHEMA.Queue.map(k => encode_(k, { id: uid_('Q'), campaignId: c.id, email: r.email, name: r.name, token: r.token, status: 'queued', ts: now_() }[k])));
-        if (rows.length) { const s = sh_('Queue'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Queue.length).setValues(rows); }
+        if (rows.length) { dbDirty_('Queue'); const s = sh_('Queue'); s.getRange(s.getLastRow() + 1, 1, rows.length, SCHEMA.Queue.length).setValues(rows); }
         update_('Campaigns', 'id', c.id, { status: 'sending', stats: { total: rows.length, sent: 0, failed: 0 } });
       }
     });
@@ -1943,6 +1987,7 @@ function campaignTick() {
     const qs = sh_('Queue'), q = all_('Queue');
     sending.forEach(c => {
       const mine = q.filter(x => x.campaignId === c.id && x.status === 'queued');
+      dbDirty_('Queue');
       if (c.status === 'stopped') { mine.forEach(x => qs.getRange(x._row, SCHEMA.Queue.indexOf('status') + 1).setValue('cancelled')); return; }
       const stats = c.stats || { total: 0, sent: 0, failed: 0 };
       for (let i = 0; i < mine.length && Date.now() - t0 < 240000; i += 40) {
@@ -1954,6 +1999,7 @@ function campaignTick() {
           r.ok ? stats.sent++ : stats.failed++;
         });
       }
+      dbDirty_('Queue');
       const left = all_('Queue').filter(x => x.campaignId === c.id && x.status === 'queued').length;
       update_('Campaigns', 'id', c.id, { stats: stats, status: left ? 'sending' : 'sent', sentAt: left ? '' : now_() });
       if (!left) bumpContacts_(c);
@@ -2785,6 +2831,7 @@ function letterheadHtml_(opt) {
     (opt.to ? '<div style="margin-top:18px;white-space:pre-line">' + esc_(opt.to) + '</div>' : '') +
     (opt.subject ? '<p style="margin:18px 0 14px' + (opt.kind === 'notice' ? ';text-align:center' : '') + '"><b>' + (opt.kind === 'notice' ? '' : 'Subject: ') + esc_(opt.subject) + '</b></p>' : '<div style="height:12px"></div>') +
     '<div>' + (opt.bodyHtml || '') + '</div>' + sigBlock +
+    (opt.fromDesk ? '<p style="margin-top:26px;font-family:Arial,sans-serif;font-size:9.5px;line-height:1.5;color:#5E6875;border-left:2px solid #C9CED5;padding:4px 10px">The views expressed in this letter are those of ' + esc_(opt.fromDesk.name) + ' in their capacity as a member of the editorial board, and do not necessarily represent the views of ' + esc_(j ? j.name : 'the journal') + ', ACRI Journals or ' + esc_(P.name) + '.</p>' : '') +
     '<div style="margin-top:40px;border-top:1px solid #E2E5E9;padding-top:8px;font-family:Arial,sans-serif;font-size:8.5px;color:#8A939F;text-align:center">ACRI Journals is published by ' + esc_(P.name) + ' · ' + esc_(P.web) + (opt.ref ? ' · Verify this document by quoting ' + esc_(opt.ref) + ' to ' + esc_(P.email) : '') + '</div>' +
     '</body></html>';
 }
@@ -3012,5 +3059,21 @@ function me_tools(p, u) {
   need_(js.length, 'Editor tools are for editorial board members.');
   const me = find_('Users', 'id', u.id);
   return { ok: true, journals: js.map(s => { const j = journalRow_(s); return { slug: s, code: j.code, name: j.name }; }), hasSignature: !!me.signatureFileId, signature: me.signatureFileId ? imgFromFile_(me.signatureFileId) : '' };
+}
+
+/** Board member photo: a small square JPEG prepared in the browser, published with the website. */
+function savePhoto_(userId, ph) {
+  need_(/jpe?g|png|webp/i.test(ph.mime || ''), 'The photo must be a JPG or PNG image.');
+  const bytes = Utilities.base64Decode(ph.data); need_(bytes.length < 1.5 * 1024 * 1024, 'The photo is too large. Please use a smaller image.');
+  const name = String(userId).toLowerCase().replace(/[^a-z0-9]/g, '') + '.jpg';
+  if (prop_('GITHUB_TOKEN')) ghCommit_([{ path: 'content/people/' + name, bytes: bytes }], 'Board photo: ' + userId);
+  return '/assets/people/' + name + '?v=' + Date.now().toString(36);
+}
+/** Anyone with an active board role can change their own photo later from their profile. */
+function me_photo(p, u) {
+  need_(isAdmin_(u) || myJournals_(u).length, 'Photos are for editorial board members.');
+  update_('Users', 'id', u.id, { photo: p.data ? savePhoto_(u.id, p) : '' });
+  myJournals_(u).forEach(s => { try { syncBoard_(s); } catch (e) { } });
+  return { ok: true, message: 'Photo saved. The board page updates in a few minutes.' };
 }
 

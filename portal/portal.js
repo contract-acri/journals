@@ -18,27 +18,54 @@
   };
 
   // ---------------------------------------------------------------- api
+  // Read-only lookups are cached for a short time, so moving between tabs does not hit the server again.
+  const CACHEABLE = { 'adm.journals': 60, 'public.journals': 300, 'sig.list': 60, 'me.tools': 60, 'team.list': 20, 'auth.me': 20 };
+  const memo = new Map();
+  const BUSY = /too many|timed? ?out|lock|try again|service (is )?(unavailable|error)|exceeded|failed to fetch|network|load failed|internal error|unexpected token/i;
   async function api(action, data = {}) {
-    if (!API || /PASTE_/.test(API)) throw new Error('The portal is not connected yet: set ACRIJ_API in /portal/index.html.');
-    const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, ...data }) });
-    const r = await res.json();
+    if (!API || /PASTE_/.test(API)) throw aesErr('The portal is not connected yet: set ACRIJ_API in /portal/index.html.', 'AES-CFG-001');
+    const key = CACHEABLE[action] ? action + JSON.stringify(data) : '';
+    if (key && memo.has(key) && memo.get(key).t > Date.now()) return memo.get(key).r;
+    if (!CACHEABLE[action]) memo.clear(); // any change clears the cache
+    let r, lastErr; progress(1);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        if (attempt) { busy(true, attempt); await new Promise(ok => setTimeout(ok, 1200 * attempt * attempt)); }
+        const res = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, token: S.token, ...data }) });
+        r = await res.json();
+        if (!r.ok && BUSY.test(r.error || '') && attempt < 2) { lastErr = new Error(r.error); continue; }
+        break;
+      } catch (e) { lastErr = e; r = null; if (!BUSY.test(String(e.message || e)) && !(e instanceof SyntaxError)) break; }
+    }
+    busy(false); progress(-1);
+    if (!r) throw aesErr('The server is busy or your connection dropped. Please try again in a moment.', 'AES-NET-001');
+    if (r.aes) { S.aes = r.aes; const v = document.getElementById('aesv'); if (v) v.textContent = 'AES ' + r.aes; }
+    if (key && r.ok) memo.set(key, { t: Date.now() + CACHEABLE[action] * 1000, r });
     if (!r.ok) {
       if (r.auth === false) { setSession(null); go('login?next=' + encodeURIComponent(location.hash.slice(2))); }
-      throw new Error(r.error || 'Something went wrong.');
+      throw aesErr(r.error || 'Something went wrong.', r.code || 'AES-SYS-500', r.ref);
     }
     return r;
   }
+  /** AES errors carry a code (see /aes/errors/) and, for system faults, a reference the admin can look up. */
+  function aesErr(msg, code, ref) { const e = new Error(msg); e.code = code; e.ref = ref || ''; return e; }
+  const codeTag = (e) => e && e.code ? ` <a class="aescode" href="/aes/errors/#${esc(e.code)}" target="_blank" title="What does this mean?">${esc(e.code)}${e.ref ? ' · ' + esc(e.ref) : ''}</a>` : '';
+  let inflight = 0;
+  function progress(d) { inflight = Math.max(0, inflight + d); let b = document.getElementById('aesbar'); if (!b) { b = document.createElement('div'); b.id = 'aesbar'; document.body.appendChild(b); } b.className = inflight ? 'on' : ''; }
+  function busy(on, n) { let b = document.getElementById('busybar'); if (!b) { b = document.createElement('div'); b.id = 'busybar'; b.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#0B2545;color:#fff;padding:8px 14px;border-radius:999px;font:600 13px Inter,Arial,sans-serif;z-index:9999;box-shadow:0 6px 20px rgba(0,0,0,.2);display:none'; document.body.appendChild(b); } b.textContent = 'Server busy, retrying… (' + (n || 1) + ')'; b.style.display = on ? 'block' : 'none'; }
   function setSession(t, u) {
     S.token = t; S.user = u || null;
     if (t) { localStorage.setItem('acrij_t', t); localStorage.setItem('acrij_u', JSON.stringify(u)); } else { localStorage.removeItem('acrij_t'); localStorage.removeItem('acrij_u'); }
     nav();
   }
-  function toast(m, err) { const t = $('#toast'); t.textContent = m; t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 3800); }
+  function toast(m, err, e) { const t = $('#toast'); t.innerHTML = esc(m) + (e && e.code ? `<small style="display:block;opacity:.8;margin-top:3px">${esc(e.code)}${e.ref ? ' · ref ' + esc(e.ref) : ''}</small>` : ''); t.className = 'toast on' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', 3800); }
   const go = (h) => { if (location.hash === '#/' + h) route(); else location.hash = '#/' + h; };
   async function run(btn, fn) {
     const label = btn?.innerHTML; if (btn) { btn.disabled = true; btn.innerHTML = 'Working…'; }
-    try { return await fn(); } catch (e) { toast(e.message, true); throw e; } finally { if (btn) { btn.disabled = false; btn.innerHTML = label; } }
+    try { return await fn(); } catch (e) { if (/of null|of undefined/i.test(String(e.message))) { toast('Refreshing the page…'); memo.clear(); setTimeout(route, 300); return; } toast(e.message, true, e); throw e; } finally { if (btn) { btn.disabled = false; btn.innerHTML = label; } }
   }
+  /** Crop any photo to a centred 400×400 JPEG in the browser, so uploads are small and consistent. */
+  const squarePhoto = (file) => new Promise((ok, no) => { const img = new Image(); img.onload = () => { const s = Math.min(img.width, img.height), c = document.createElement('canvas'); c.width = c.height = 400; c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 3, s, s, 0, 0, 400, 400); ok({ data: c.toDataURL('image/jpeg', 0.86).split(',')[1], mime: 'image/jpeg' }); URL.revokeObjectURL(img.src); }; img.onerror = () => no(new Error('That file is not an image we can read.')); img.src = URL.createObjectURL(file); });
   const fileToB64 = (f) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = no; r.readAsDataURL(f); });
   function download(name, mime, b64) { const b = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([b], { type: mime })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
   const st = (s, label) => `<span class="st s-${esc(s)}">${esc(label || s)}</span>`;
@@ -59,7 +86,11 @@
     const [path, qs] = raw.split('?');
     return { parts: path.split('/').filter(Boolean), q: Object.fromEntries(new URLSearchParams(qs || '')) };
   }
+  // Each navigation gets a number. A slow page that finishes after you have moved on is ignored,
+  // instead of breaking the page you are now on ("Cannot set properties of null").
+  let SEQ = 0; const RETRIED = {};
   async function route() {
+    const my = ++SEQ, here = location.hash;
     nav(); window.scrollTo(0, 0);
     const { parts, q } = parse(), p0 = parts[0] || '';
     const open = { login: vLogin, register: vRegister, forgot: vForgot, reset: vReset, verify: vVerify, review: vReview, subscribe: vSubscribe, agreement: vAgreement, email: vEmailPrefs, 'partner-apply': vPartnerApply };
@@ -73,7 +104,17 @@
       if (p0 === 'profile') return await vProfile();
       if (p0 === 'tools') return await vTools(q);
       app.innerHTML = '<div class="empty">Page not found.</div>';
-    } catch (e) { app.innerHTML = `<div class="panel"><div class="msg err">${esc(e.message)}</div><a class="btn btn-ghost" href="#/">Back to dashboard</a></div>`; }
+      delete RETRIED[here];
+    } catch (e) {
+      if (my !== SEQ) return; // you already moved to another page
+      const msg = String(e && e.message || e);
+      if (/of null|of undefined|is not defined|busy|connection dropped/i.test(msg) && !RETRIED[here]) { RETRIED[here] = 1; memo.clear(); app.innerHTML = '<div class="loading">Reloading…</div>'; setTimeout(() => { if (my === SEQ) route(); }, 700); return; }
+      delete RETRIED[here];
+      console.error(e);
+      const ui = /of null|of undefined/i.test(msg); if (ui) { e = aesErr('This page did not load completely.', 'AES-UI-001'); }
+      app.innerHTML = `<div class="panel errpanel" style="max-width:680px"><div class="msg err">${esc(e.message)}</div>${e.code ? `<p class="meta">Error code <b>${esc(e.code)}</b>${e.ref ? ` · reference <b>${esc(e.ref)}</b> (quote it when you contact the office)` : ''} · <a href="/aes/errors/#${esc(e.code)}" target="_blank">What does this mean?</a></p>` : ''}<div style="display:flex;gap:10px"><button class="btn btn-primary" id="retry">Try again</button><a class="btn btn-ghost" href="#/">Back to dashboard</a></div></div>`;
+      document.getElementById('retry').onclick = () => { memo.clear(); route(); };
+    }
   }
   window.addEventListener('hashchange', route);
 
@@ -456,8 +497,10 @@
       <h3>Reviewing preferences</h3><p class="meta" style="margin-top:-6px">Editors see these before inviting you, and your review deadline follows them.</p>
       <div class="row3"><div class="f"><label>Days I need for a review</label><select name="reviewDays">${[7, 10, 14, 21, 30, 45, 60].map(d => `<option ${Number(u.reviewDays) === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div><div class="f"><label>Most reviews at a time</label><select name="reviewMax">${[0, 1, 2, 3, 4, 5].map(d => `<option value="${d}" ${Number(u.reviewMax) === d ? 'selected' : ''}>${d === 0 ? 'No limit' : d}</option>`).join('')}</select></div><div class="f"><label>Not available until</label><input type="date" name="reviewPauseUntil" value="${esc(u.reviewPauseUntil || '')}"></div></div>
       <div class="f"><label>Note for editors (optional)</label><input name="reviewNote" value="${esc(u.reviewNote || '')}" placeholder="e.g. on leave in December; quantitative papers preferred"></div>
+      ${['eic', 'senior', 'editor', 'board'].some(r => (S.user?.roles?.[r] || []).length) || isAdmin() ? `<h3>Board page photo</h3><div style="display:flex;gap:12px;align-items:center"><img id="phprev" src="${esc(u.photo || '')}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:#EEF1F5;${u.photo ? '' : 'visibility:hidden'}"><input type="file" id="phfile" accept="image/*" class="inp"><button type="button" class="btn btn-ghost" id="phsave">Save photo</button></div>` : ''}
       <h3>Change password</h3><div class="row2"><div class="f"><input name="currentPassword" type="password" placeholder="Current password" class="inp"></div><div class="f"><input name="newPassword" type="password" placeholder="New password" class="inp"></div></div>
       <button class="btn btn-primary">Save profile</button></form>`;
+    $('#phsave')?.addEventListener('click', (e) => run(e.target, async () => { const f = $('#phfile').files[0]; if (!f) return toast('Choose a photo first.', true); const ph = await squarePhoto(f); $('#phprev').src = 'data:image/jpeg;base64,' + ph.data; $('#phprev').style.visibility = 'visible'; const r = await api('me.photo', ph); toast(r.message); }));
     $('#pf').onsubmit = (e) => { e.preventDefault(); const f = e.target; run(e.submitter, async () => { const r = await api('auth.profile', { given: f.given.value, family: f.family.value, degrees: f.degrees.value, affiliation: f.affiliation.value, orcid: f.orcid.value, country: f.country.value, phone: f.phone.value, designation: f.designation.value, department: f.department.value, instEmail: f.instEmail.value, profileUrl: f.profileUrl.value, instAddress: f.instAddress.value, reviewer: f.reviewer.checked, reviewDays: f.reviewDays.value, reviewMax: f.reviewMax.value, reviewPauseUntil: f.reviewPauseUntil.value, reviewNote: f.reviewNote.value, subjects: f.subjects.value.split(/[;,]/).map(s => s.trim()).filter(Boolean), currentPassword: f.currentPassword.value, newPassword: f.newPassword.value }); setSession(S.token, r.user); toast('Profile saved'); }); };
   }
 
@@ -517,7 +560,7 @@
       <div class="msg info">Every appointment is for a fixed term. The person receives the Editorial Agreement by email and must sign it before their editorial access starts. Reminders go out 30 and 7 days before the term ends. When it ends, access closes automatically and a certificate of service is emailed to them. The website's editorial board updates on its own.</div>
       <table class="list"><thead><tr><th>Name</th><th>Role</th><th>Term</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a => `<tr data-a="${a.id}"><td><b>${esc(a.name)}</b><div class="meta">${esc(a.email)} · ${esc(a.affiliation || '')}</div></td><td>${esc(a.roleLabel)}${a.title ? `<div class="meta">${esc(ROLE_LABEL[a.role])}</div>` : ''}</td><td class="meta">${esc(a.start)} → ${esc(a.end)}</td>
         <td>${st(sc[a.status] || 'draft', a.status)}${a.signedAt ? `<div class="meta">signed ${fmt(a.signedAt)}</div>` : ''}${a.endReason ? `<div class="meta">${esc(a.endReason)}</div>` : ''}</td>
-        <td style="white-space:nowrap">${a.status === 'pending' ? '<button class="mini" data-op="resend">Resend</button> <button class="mini danger" data-op="withdraw">Withdraw</button>' : ''}${a.status === 'active' ? `<button class="mini" data-op="renew">Renew</button> <button class="mini" data-op="site">${a.showOnSite ? 'Hide' : 'Show'} on site</button> <button class="mini danger" data-op="end">End</button>` : ''}${adm && a.agreementFileId ? ` <button class="mini" data-file="${a.agreementFileId}">Agreement</button>` : ''}${adm && a.certificateFileId ? ` <button class="mini" data-file="${a.certificateFileId}">Certificate</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No appointments yet.</td></tr>'}</tbody></table>
+        <td style="white-space:nowrap">${a.status === 'pending' ? `${a.link ? `<button class="mini" data-copy="${esc(a.link)}">Copy link</button> <a class="mini" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Please confirm your details and join the editorial board of ' + (J.find(j => j.slug === a.journal)?.name || '') + ': ' + a.link)}">WhatsApp</a> ` : ''}<button class="mini" data-op="resend">Resend</button> <button class="mini danger" data-op="withdraw">Withdraw</button>${a.expires ? `<div class="meta">link valid until ${fmt(a.expires)}</div>` : ''}` : ''}${a.status === 'active' ? `<button class="mini" data-op="renew">Renew</button> <button class="mini" data-op="site">${a.showOnSite ? 'Hide' : 'Show'} on site</button> <button class="mini danger" data-op="end">End</button>` : ''}${adm && a.agreementFileId ? ` <button class="mini" data-file="${a.agreementFileId}">Agreement</button>` : ''}${adm && a.certificateFileId ? ` <button class="mini" data-file="${a.certificateFileId}">Certificate</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No appointments yet.</td></tr>'}</tbody></table>
       <h3 style="margin-top:28px">Appoint an editor</h3><form id="apf" class="rev">
       <div class="row3"><div class="f"><label>Role</label><select name="role">${Object.entries(ROLE_LABEL).filter(([k]) => adm || k !== 'eic').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div><div class="f"><label>Title shown (optional)</label><input name="title" placeholder="e.g. Associate Editor, Section Editor — Finance"></div><div class="f"><label>Email</label><input name="email" type="email" required></div></div>
       <div class="row3"><div class="f"><label>First name</label><input name="given"></div><div class="f"><label>Last name</label><input name="family"></div><div class="f"><label>Degrees</label><input name="degrees" placeholder="PhD"></div></div>
@@ -527,7 +570,7 @@
       <p class="meta" style="margin-top:-4px">ISSN India and indexing services need these details on the board page for every member: designation, institution, full address, institutional email and profile link.</p>
       <div class="row3"><div class="f"><label>Institution</label><input name="affiliation"></div><div class="f"><label>Term starts</label><input name="start" type="date" value="${today}"></div><div class="f"><label>Term ends</label><input name="end" type="date" value="${plus2}"></div></div>
       <div class="row3"><div class="f"><label>Link valid for</label><select name="days">${[[1, '24 hours'], [3, '3 days'], [7, '7 days'], [14, '14 days'], [30, '30 days']].map(([d, l]) => `<option value="${d}" ${d === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
-      <label class="chk"><input type="checkbox" name="show" checked> Show on the journal's editorial board page once signed</label><p class="meta">Name fields are only needed for people without an account. They will get an email to set their password.</p>
+      <label class="chk"><input type="checkbox" name="show" checked> Show on the journal's editorial board page once signed</label><p class="meta"><b>Only the email and role are required.</b> The person fills in their own name, photo, designation, institution, address, profile link and reviewing preferences from their personal link. Anything you enter here is pre-filled for them to check.</p>
       <button class="btn btn-primary">Send appointment & agreement</button></form>
       <h3 style="margin-top:32px">Bring across your existing editorial board</h3>
       <p class="meta">Paste one row per member, with this header row first. Each person gets a personal link to confirm their details, set their reviewing preferences and password, and sign the agreement. Their membership starts when they sign. <b>role</b> is eic, senior, editor or board.</p>
@@ -540,6 +583,7 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
       $$('[data-ri]').forEach(b => b.onclick = () => run(b, async () => { const msg = prompt('Add a personal line to the invitation (optional):', ''); if (msg === null) return; const x = await api('rec.update', { id: b.dataset.ri, op: 'invite', message: msg }); toast(x.message); }));
       $$('[data-rs]').forEach(sl => sl.onchange = () => api('rec.update', { id: sl.dataset.rs, status: sl.value }).then(() => toast('Updated.'))); })().catch(e => { $('#recs').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; });
     $('[name=j]').onchange = (e) => go('admin/team?j=' + e.target.value);
+    $$('[data-copy]').forEach(b => b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); toast('Link copied. Share it only with this person.'); } catch { prompt('Copy this personal link:', b.dataset.copy); } });
     $('#apf').onsubmit = (e) => { e.preventDefault(); const f = e.target; run(e.submitter, async () => { await api('team.appoint', { journal: cur, role: f.role.value, title: f.title.value, email: f.email.value, given: f.given.value, family: f.family.value, degrees: f.degrees.value, affiliation: f.affiliation.value, designation: f.designation.value, department: f.department.value, country: f.country.value, instEmail: f.instEmail.value, profileUrl: f.profileUrl.value, instAddress: f.instAddress.value, start: f.start.value, end: f.end.value, showOnSite: f.show.checked, days: f.days.value }); toast('Appointment sent for signature'); vAdmin('team', { j: cur }); }); };
     $$('[data-op]').forEach(b => b.onclick = () => run(b, async () => {
       const id = b.closest('[data-a]').dataset.a, a = rows.find(x => x.id === id), op = b.dataset.op;
@@ -838,6 +882,8 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
       <aside class="side"><div class="panel">${signed ? `<div class="msg ok">Signed by <b>${esc(a.signedName)}</b> on ${fmtT(a.signedAt)}. Your appointment is active.</div><a class="btn btn-primary" href="#/">Open the portal</a>`
         : a.status !== 'pending' ? `<div class="msg info">This appointment is ${esc(a.status)}.</div>`
         : `${a.expires ? `<p class="meta" style="color:#B42318">This personal link is valid until ${fmtT(a.expires)}.</p>` : ''}<form id="agf"><h3>1. Your details on the board page</h3><p class="meta" style="margin-top:-6px">Shown on the journal's editorial board page and shared with ISSN India and indexing services.</p>
+        <div class="row2"><div class="f"><label>First name *</label><input name="given" class="inp" value="${esc(a.profile.given)}"></div><div class="f"><label>Last name *</label><input name="family" class="inp" value="${esc(a.profile.family)}"></div></div>
+        <div class="f"><label>Photo for the board page</label><div style="display:flex;gap:12px;align-items:center"><img id="phprev" src="${esc(a.profile.photo || '')}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:#EEF1F5;${a.profile.photo ? '' : 'visibility:hidden'}"><input type="file" id="phfile" accept="image/*" class="inp"></div><div class="meta">A clear head-and-shoulders photo. It is cropped to a square.</div></div>
         <div class="f"><label>Designation *</label><input name="designation" class="inp" value="${esc(a.profile.designation)}" placeholder="e.g. Professor"></div>
         <div class="f"><label>Department</label><input name="department" class="inp" value="${esc(a.profile.department)}"></div>
         <div class="f"><label>Institution *</label><input name="affiliation" class="inp" value="${esc(a.profile.affiliation)}"></div>
@@ -848,12 +894,15 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
         <div class="f"><label>ORCID iD</label><input name="orcid" class="inp" value="${esc(a.profile.orcid)}"></div>
         <h3>2. Reviewing</h3><label class="chk"><input type="checkbox" name="reviewer" ${a.prefs.reviewer ? 'checked' : ''}> I am willing to review manuscripts</label>
         <div class="row2"><div class="f"><label>Days I need per review</label><select name="reviewDays" class="inp">${[7, 10, 14, 21, 30, 45, 60].map(d => `<option ${a.prefs.reviewDays === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div><div class="f"><label>Reviews at a time</label><select name="reviewMax" class="inp">${[1, 2, 3, 4, 5, 0].map(d => `<option value="${d}" ${a.prefs.reviewMax === d ? 'selected' : ''}>${d === 0 ? 'No limit' : d}</option>`).join('')}</select></div></div>
+        <div class="f"><label>Your signature (optional, for letters you write as an editor)</label><input type="file" id="sigfile" accept="image/png,image/jpeg" class="inp"><div class="meta">PNG with a transparent background works best. You can add it later in Editor tools.</div></div>
         ${a.needsPassword ? '<h3>3. Your portal password</h3><div class="f"><input name="password" type="password" class="inp" placeholder="At least 8 characters" autocomplete="new-password"></div>' : ''}
         <h3>${a.needsPassword ? '4' : '3'}. Sign</h3></form><div id="m"></div><div class="f"><label>Type your full name</label><input id="sgn" class="inp" value=""></div><label class="chk"><input type="checkbox" id="agr"> I have read and agree to the ACRI Journals Editorial Agreement and the ACRI Journals policies.</label><button class="btn btn-green" id="sign" style="width:100%;justify-content:center;margin-top:10px">I agree and sign</button>
 
         <h3 style="margin-top:26px">Not able to accept?</h3><div class="f"><textarea id="why" placeholder="Reason (optional)" style="min-height:60px"></textarea></div><button class="btn btn-ghost" id="decl">Decline appointment</button>`}</div></aside></div>`;
-    $('#sign')?.addEventListener('click', (e) => { if (!$('#agr').checked) return toast('Please tick the box to confirm that you agree.', true); run(e.target, async () => { const F = $('#agf').elements; const profile = {}; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'degrees', 'country', 'orcid'].forEach(k => profile[k] = F[k].value);
-      const r = await api('agreement.sign', { token: q.token, name: $('#sgn').value, agree: true, ua: navigator.userAgent, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, lang: navigator.language, profile, prefs: { reviewer: F.reviewer.checked, reviewDays: F.reviewDays.value, reviewMax: F.reviewMax.value }, password: F.password ? F.password.value : '' }); toast(r.message); vAgreement(q); }); });
+    const PH = {};
+    $('#phfile')?.addEventListener('change', async (ev) => { const f = ev.target.files[0]; if (!f) return; Object.assign(PH, await squarePhoto(f)); $('#phprev').src = 'data:image/jpeg;base64,' + PH.data; $('#phprev').style.visibility = 'visible'; });
+    $('#sign')?.addEventListener('click', (e) => { if (!$('#agr').checked) return toast('Please tick the box to confirm that you agree.', true); run(e.target, async () => { const F = $('#agf').elements; const profile = { given: F.given.value, family: F.family.value }; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'degrees', 'country', 'orcid'].forEach(k => profile[k] = F[k].value);
+      const r = await api('agreement.sign', { token: q.token, name: $('#sgn').value, agree: true, ua: navigator.userAgent, tz: Intl.DateTimeFormat().resolvedOptions().timeZone, lang: navigator.language, profile, prefs: { reviewer: F.reviewer.checked, reviewDays: F.reviewDays.value, reviewMax: F.reviewMax.value }, password: F.password ? F.password.value : '', photo: PH.data ? PH : null, signature: $('#sigfile').files[0] ? { data: await fileToB64($('#sigfile').files[0]), mime: $('#sigfile').files[0].type } : null }); toast(r.message); vAgreement(q); }); });
     $('#decl')?.addEventListener('click', (e) => { if (!confirm('Decline this appointment?')) return; run(e.target, async () => { const r = await api('agreement.decline', { token: q.token, reason: $('#why').value }); app.innerHTML = `<div class="auth panel"><div class="msg ok">${esc(r.message)}</div></div>`; }); });
   }
   async function vEmailPrefs(q) {
@@ -990,7 +1039,9 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
         ${Object.entries(G).map(([g, xs]) => `<fieldset class="sset"><legend>${esc(g)}</legend><div class="sgrid">${xs.map(field).join('')}</div></fieldset>`).join('')}
         <fieldset class="sset"><legend>Web app</legend><div class="meta">Portal API address (set in the website code): <code style="word-break:break-all">${esc(r.webapp || '')}</code></div></fieldset>
         <div style="position:sticky;bottom:0;background:#fff;padding:14px 0;border-top:1px solid var(--line);margin-top:10px"><button class="btn btn-primary">Save settings</button></div>
-      </form>`;
+      </form>
+      <h2 style="font:600 22px var(--serif);margin:30px 0 4px">Error log</h2><p class="meta" style="margin:0 0 10px">System faults with their AES code and reference, newest first. Form and permission messages are not logged. <a href="/aes/errors/" target="_blank">What the codes mean</a></p><div id="elog"><div class="loading">Loading…</div></div>`;
+    api('err.list').then(x => { $('#elog') && ($('#elog').innerHTML = x.items.length ? `<table class="list"><thead><tr><th>Reference</th><th>Code</th><th>Action</th><th>Message</th><th>When</th></tr></thead><tbody>${x.items.map(e => `<tr><td><code>${esc(e.ref)}</code></td><td><a class="aescode" href="/aes/errors/#${esc(e.code)}" target="_blank">${esc(e.code)}</a></td><td class="meta">${esc(e.action)}</td><td style="max-width:420px">${esc(e.message)}</td><td class="meta">${fmtT(e.ts)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">No errors logged. 🎉</div>'); }).catch(() => { $('#elog') && ($('#elog').innerHTML = '<div class="meta">Run setup() once to create the Errors sheet.</div>'); });
     const showChecks = (c) => { $('#sres').innerHTML = `<div class="panel" style="border:1px solid var(--line);margin-bottom:18px"><table class="list"><tbody>${Object.entries(c).map(([k, v]) => { const t = typeof v === 'object' && v ? (v.error ? 'ERROR: ' + v.error : JSON.stringify(v)) : String(v); const bad = /error|missing|false|401|403|404/i.test(t); return `<tr><td style="width:160px;font-weight:600">${esc(k)}</td><td>${bad ? '<span class="st s-rejected">check</span> ' : '<span class="st s-published">ok</span> '}${esc(t)}</td></tr>`; }).join('')}</tbody></table></div>`; };
     $('#stest').onclick = (e) => run(e.target, async () => { const x = await api('set.test'); showChecks(x.checks); });
     $('#smail').onclick = (e) => run(e.target, async () => { const x = await api('adm.testEmail', {}); toast(x.result ? (x.result.status === 'sent' ? 'Test email sent: ' + (x.result.detail || 'ok') : 'Failed: ' + x.result.detail) : 'Sent.', x.result && x.result.status !== 'sent'); });
