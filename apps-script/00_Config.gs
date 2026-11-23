@@ -47,7 +47,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],

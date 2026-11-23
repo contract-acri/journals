@@ -15,7 +15,11 @@ function reviewPrefs_(p) {
  *  Columns: role, title, given, family, email, degrees, designation, department, affiliation, instAddress, instEmail, profileUrl, country, orcid, start, end
  *  role = eic | senior | editor | board. Each person gets a personal link (valid p.days) to confirm details and sign. */
 function team_import(p, u) {
-  const rows = parseCsv_(p.csv || ''); need_(rows.length, 'Paste the members, with the header row first.');
+  // The header row is optional: "role,email" lines (or just emails) work too.
+  let text = String(p.csv || '').trim();
+  const first = (text.split(/\r?\n/)[0] || '').toLowerCase();
+  if (!/\b(email)\b/.test(first) || /@/.test(first)) text = (/,/.test(first) ? 'role,email\n' : 'email\n') + text;
+  const rows = parseCsv_(text).filter(r => String(r.email || '').trim()); need_(rows.length, 'Paste at least one line, for example: board, name@university.edu');
   const out = [];
   rows.forEach((r, i) => {
     try {

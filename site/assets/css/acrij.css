@@ -427,3 +427,4 @@ button{font:inherit}
 /* board member photos */
 .person .pph{display:block;width:76px;height:76px;border-radius:50%;object-fit:cover;margin:0 0 12px;border:3px solid #fff;box-shadow:0 0 0 1px var(--line)}
 .person span,.person a{overflow-wrap:anywhere}
+.person .pbio{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.55;color:var(--ink-2)}

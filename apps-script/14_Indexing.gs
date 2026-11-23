@@ -5,7 +5,10 @@
  *  When a journal without an ISSN passes, it becomes "Ready for ISSN application" and admins are emailed. */
 
 const ISSN_STAGES = { not_applied: 'Not applied', ready: 'Ready to apply', applied: 'Applied', verification: 'EB verification mails sent', provisional: 'Provisional ISSN assigned', assigned: 'Assigned (confirmed)', not_applicable: 'Not applicable' };
-const PERSONAL_MAIL = /@(gmail|yahoo|ymail|hotmail|outlook|live|rediffmail|icloud|aol|proton(mail)?|zoho)\./i;
+/** Free / personal email providers. These are not accepted as an institutional email (ISSN India and indexers ask for institutional addresses). */
+const PERSONAL_DOMAINS = ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'yahoo.in', 'yahoo.co.uk', 'ymail.com', 'rocketmail.com', 'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.in', 'live.com', 'live.in', 'msn.com', 'rediffmail.com', 'rediff.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me', 'zoho.com', 'zohomail.com', 'zohomail.in', 'yandex.com', 'yandex.ru', 'mail.com', 'gmx.com', 'gmx.net', 'tutanota.com', 'tuta.io', 'fastmail.com', 'inbox.com', 'qq.com', '163.com', '126.com', 'sify.com', 'indiatimes.com', 'hey.com'];
+const PERSONAL_MAIL = { test: (e) => PERSONAL_DOMAINS.indexOf(String(e || '').trim().toLowerCase().split('@').pop()) >= 0 };
+function instEmailOk_(e) { e = String(e || '').trim(); if (!e) return; need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e), 'Institutional email is not valid.'); need_(!PERSONAL_MAIL.test(e), 'Please give your institutional email (for example name@university.edu). Personal addresses such as ' + e.split('@').pop() + ' cannot be used here; they are not accepted by ISSN India and indexing services.'); }
 
 function siteConfig_() {
   const c = CacheService.getScriptCache(), hit = c.get('SITECFG'); if (hit) return JSON.parse(hit);

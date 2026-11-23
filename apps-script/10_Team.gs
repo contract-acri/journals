@@ -12,7 +12,7 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
+    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
 function syncBoard_(slug) {
@@ -97,6 +97,7 @@ function team_appoint(p, u) {
     }
     need_(!where_('Appointments', a => a.userId === x.id && a.journal === p.journal && a.role === p.role && ['pending', 'active'].indexOf(a.status) >= 0 && String(a.end) >= p.start).length, 'This person already has this role for an overlapping term.');
     const prof = {}; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'country', 'degrees', 'orcid'].forEach(k => { if (p[k]) prof[k] = p[k]; });
+    if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (Object.keys(prof).length) update_('Users', 'id', x.id, prof);
     const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_(), expires: new Date(Date.now() + days * 864e5).toISOString(), transfer: !!p.transfer });
     sendAppointment_(a, x, j, setPw);
@@ -171,7 +172,7 @@ function appt_(token) {
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
-    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
@@ -187,12 +188,13 @@ function agreement_sign(p) {
     need_(String(pr.given || '').trim() && String(pr.family || '').trim(), 'Please enter your first and last name as they should appear on the board page.');
     prof.given = String(pr.given).trim(); prof.family = String(pr.family).trim();
   }
+  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, 600);
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
   if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
-    if (prof.instEmail) need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(prof.instEmail), 'Institutional email is not valid.');
+    if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
   }
   Object.assign(prof, reviewPrefs_(p.prefs || {}));

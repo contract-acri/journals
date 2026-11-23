@@ -56,7 +56,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -221,7 +221,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', bio: u.bio || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -336,6 +336,8 @@ function auth_me(p, u) {
 function auth_profile(p, u) {
   const patch = {};
   ['given', 'family', 'degrees', 'affiliation', 'country', 'phone', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'].forEach(k => { if (p[k] !== undefined) patch[k] = String(p[k]).trim(); });
+  if (patch.instEmail) instEmailOk_(patch.instEmail);
+  if (p.bio !== undefined) patch.bio = String(p.bio).trim().slice(0, 600);
   if (p.orcid !== undefined) patch.orcid = String(p.orcid).replace(/^https?:\/\/orcid.org\//, '').trim();
   if (p.reviewer !== undefined) patch.reviewer = !!p.reviewer;
   Object.assign(patch, reviewPrefs_(p));
@@ -345,7 +347,9 @@ function auth_profile(p, u) {
     need_(p.newPassword.length >= 8, 'Password must be at least 8 characters.');
     patch.salt = token_().slice(0, 16); patch.passHash = hashPw_(p.newPassword, patch.salt);
   }
-  return { ok: true, user: publicUser_(update_('Users', 'id', u.id, patch)) };
+  const out = update_('Users', 'id', u.id, patch);
+  if (['given', 'family', 'degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'bio', 'country'].some(k => patch[k] !== undefined)) { try { myJournals_(Object.assign({}, u, { roles: effectiveRoles_(u) })).forEach(s => syncBoard_(s)); } catch (e) { } }
+  return { ok: true, user: publicUser_(out) };
 }
 
 // ======================================================================
@@ -1558,7 +1562,7 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
+    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
 function syncBoard_(slug) {
@@ -1643,6 +1647,7 @@ function team_appoint(p, u) {
     }
     need_(!where_('Appointments', a => a.userId === x.id && a.journal === p.journal && a.role === p.role && ['pending', 'active'].indexOf(a.status) >= 0 && String(a.end) >= p.start).length, 'This person already has this role for an overlapping term.');
     const prof = {}; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'country', 'degrees', 'orcid'].forEach(k => { if (p[k]) prof[k] = p[k]; });
+    if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (Object.keys(prof).length) update_('Users', 'id', x.id, prof);
     const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_(), expires: new Date(Date.now() + days * 864e5).toISOString(), transfer: !!p.transfer });
     sendAppointment_(a, x, j, setPw);
@@ -1717,7 +1722,7 @@ function appt_(token) {
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
-    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
@@ -1733,12 +1738,13 @@ function agreement_sign(p) {
     need_(String(pr.given || '').trim() && String(pr.family || '').trim(), 'Please enter your first and last name as they should appear on the board page.');
     prof.given = String(pr.given).trim(); prof.family = String(pr.family).trim();
   }
+  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, 600);
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
   if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
-    if (prof.instEmail) need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(prof.instEmail), 'Institutional email is not valid.');
+    if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
   }
   Object.assign(prof, reviewPrefs_(p.prefs || {}));
@@ -2380,7 +2386,10 @@ function bi_registerDoi(p, u) {
  *  When a journal without an ISSN passes, it becomes "Ready for ISSN application" and admins are emailed. */
 
 const ISSN_STAGES = { not_applied: 'Not applied', ready: 'Ready to apply', applied: 'Applied', verification: 'EB verification mails sent', provisional: 'Provisional ISSN assigned', assigned: 'Assigned (confirmed)', not_applicable: 'Not applicable' };
-const PERSONAL_MAIL = /@(gmail|yahoo|ymail|hotmail|outlook|live|rediffmail|icloud|aol|proton(mail)?|zoho)\./i;
+/** Free / personal email providers. These are not accepted as an institutional email (ISSN India and indexers ask for institutional addresses). */
+const PERSONAL_DOMAINS = ['gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'yahoo.in', 'yahoo.co.uk', 'ymail.com', 'rocketmail.com', 'hotmail.com', 'hotmail.co.uk', 'outlook.com', 'outlook.in', 'live.com', 'live.in', 'msn.com', 'rediffmail.com', 'rediff.com', 'icloud.com', 'me.com', 'mac.com', 'aol.com', 'proton.me', 'protonmail.com', 'pm.me', 'zoho.com', 'zohomail.com', 'zohomail.in', 'yandex.com', 'yandex.ru', 'mail.com', 'gmx.com', 'gmx.net', 'tutanota.com', 'tuta.io', 'fastmail.com', 'inbox.com', 'qq.com', '163.com', '126.com', 'sify.com', 'indiatimes.com', 'hey.com'];
+const PERSONAL_MAIL = { test: (e) => PERSONAL_DOMAINS.indexOf(String(e || '').trim().toLowerCase().split('@').pop()) >= 0 };
+function instEmailOk_(e) { e = String(e || '').trim(); if (!e) return; need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e), 'Institutional email is not valid.'); need_(!PERSONAL_MAIL.test(e), 'Please give your institutional email (for example name@university.edu). Personal addresses such as ' + e.split('@').pop() + ' cannot be used here; they are not accepted by ISSN India and indexing services.'); }
 
 function siteConfig_() {
   const c = CacheService.getScriptCache(), hit = c.get('SITECFG'); if (hit) return JSON.parse(hit);
@@ -2991,7 +3000,11 @@ function reviewPrefs_(p) {
  *  Columns: role, title, given, family, email, degrees, designation, department, affiliation, instAddress, instEmail, profileUrl, country, orcid, start, end
  *  role = eic | senior | editor | board. Each person gets a personal link (valid p.days) to confirm details and sign. */
 function team_import(p, u) {
-  const rows = parseCsv_(p.csv || ''); need_(rows.length, 'Paste the members, with the header row first.');
+  // The header row is optional: "role,email" lines (or just emails) work too.
+  let text = String(p.csv || '').trim();
+  const first = (text.split(/\r?\n/)[0] || '').toLowerCase();
+  if (!/\b(email)\b/.test(first) || /@/.test(first)) text = (/,/.test(first) ? 'role,email\n' : 'email\n') + text;
+  const rows = parseCsv_(text).filter(r => String(r.email || '').trim()); need_(rows.length, 'Paste at least one line, for example: board, name@university.edu');
   const out = [];
   rows.forEach((r, i) => {
     try {
