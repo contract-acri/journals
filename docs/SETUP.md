@@ -276,4 +276,7 @@ Use "Copy link" or "WhatsApp" on a pending appointment to share the link yoursel
 ## ACRI One (level 1)
 
 ACRI One is the name of the account people use in AES. The page /one/ explains it and links to sign-in.
-one.acriindia.org.in redirects to https://acriindia.org.in/one/ (Cloudflare redirect rule). When real single sign-on is built later, it replaces the redirect at the same address.
+For now ACRI One lives at https://acriindia.org.in/one/ (no separate subdomain). A dedicated address such as one.acriindia.org.in can be added later, when real single sign-on is built.
+
+## Explainer pages
+/how-it-works/ (the life of a paper), /aes/ (what AES is, what it does for each role, privacy and security, release notes) and /one/ (ACRI One) are built by build/build.mjs and linked from the footer. Add a row to the "Versions" table in aesPage() with each new AES release.

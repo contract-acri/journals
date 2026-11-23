@@ -145,7 +145,7 @@ function footer() {
     <div><h5>Journals</h5>${journals.map(j => `<a href="/journals/${j.slug}/">${esc(j.code)}</a>`).join('')}</div>
     <div><h5>Publish</h5><a href="/for-authors/">For Authors</a><a href="/for-authors/#template">Manuscript template</a><a href="/portal/#/submit">Submit a manuscript</a><a href="/for-reviewers/">For Reviewers</a></div>
     <div><h5>Policies</h5><a href="/policies/privacy/">Privacy</a><a href="/policies/terms/">Terms of use</a><a href="/policies/open-access/">Open access</a><a href="/policies/peer-review/">Peer review</a><a href="/policies/ethics/">Publication ethics</a><a href="/policies/">All policies →</a></div>
-    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/portal/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
+    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/how-it-works/">How it works</a><a href="/aes/">AES editorial system</a><a href="/one/">ACRI One</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/one/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
   </div>
   <div class="legal"><span>© ${new Date().getFullYear()} ACRI Journals · Part of ACRIVERSE. Website © ${esc(pubInfo().name)}; articles © their authors, open access under the licence stated on each article. Published by ${esc(pubInfo().name)}${pubInfo().address ? ', ' + esc(pubInfo().address) : ''}.</span><span><a href="/policies/privacy/">Privacy</a> · <a href="/policies/terms/">Terms</a> · <a href="/policies/">All policies</a> · <a href="/about/#contact">Contact</a></span></div>
 </div></footer>`;
@@ -597,6 +597,74 @@ function journalAuthors(j) {
 }
 
 // Static content pages (network) come from /content/pages/*.html with a front-matter line.
+// ---------------------------------------------------------------- explainer pages: how it works, AES
+function howItWorksPage() {
+  const steps = [
+    ['Prepare', 'Before you submit', 'Authors write the paper with the ACRI Journals Word template, which already has the right headings, reference style and figure captions. A separate title page carries the names, so the manuscript itself stays anonymous for review.', 'You'],
+    ['Submit', 'Day 0', 'Authors sign in with their ACRI One account and submit through a six-step form: journal and article type, title and abstract, authors and affiliations, files, declarations (ethics, funding, conflicts, AI use) and a final check. Every co-author is told by email.', 'Minutes'],
+    ['Technical check', 'Within about 5 working days', 'The editorial office checks scope, format, anonymity, completeness and similarity. If something is missing, the paper is returned once with a clear list of corrections, rather than rejected.', 'Editorial office'],
+    ['Editor', 'Next few days', 'The Editor-in-Chief or a Senior Editor reads the paper and either declines it without review (with reasons) or assigns a handling editor from the editorial board who knows the field.', 'Editors'],
+    ['Peer review', 'Usually 3–6 weeks', 'The handling editor invites at least two independent reviewers. Review is double-blind: reviewers do not see the authors\' names, and authors do not see the reviewers\'. Each reviewer chooses how many days they need (usually 21), reads the manuscript in a secure viewer, and sends comments for the authors and, separately, for the editor.', 'Reviewers'],
+    ['Decision', 'After the reviews', 'The Editor-in-Chief decides: accept, minor revision, major revision or reject. Authors receive the decision letter with every reviewer\'s comments. Revised papers go back to the same editor, and often the same reviewers.', 'Editor-in-Chief'],
+    ['Production', 'About 1–2 weeks after acceptance', 'A DOI is reserved the moment a paper is accepted. Authors upload final files; AES converts the Word file into a web article and a typeset two-column PDF, with references linked and figures optimised.', 'AES + office'],
+    ['Proofs', '3 days for authors', 'Authors check the web page and PDF exactly as they will be published and either approve them or list corrections. Only errors can be corrected at this stage.', 'Authors'],
+    ['Publication', 'Published online', 'The article goes live, free to read for everyone under CC BY 4.0. The DOI is registered with DataCite through Zenodo (CERN), a copy is archived there, and each author receives a certificate of publication.', 'Everyone'],
+    ['Discovery', 'The weeks after', 'Article pages carry the metadata Google Scholar and indexers read, the sitemap updates itself, and the article appears in its journal issue, in "Just Published", in search and in the RSS feed. Subscribers can be told by email.', 'The world'],
+  ];
+  return layout({ title: 'How ACRI Journals works', canonical: BASE + '/how-it-works/', desc: 'The life of a paper at ACRI Journals: submission, technical check, double-blind peer review, decision, production, proofs, publication, DOI and discovery.', body: `
+<section class="onehero hiw"><div class="wrap"><span class="kicker" style="color:#7DD3A6">How it works</span><h1>The life of a paper</h1><p>From the moment you submit to the day your article is read and cited, here is everything that happens at ACRI Journals, who does it, and roughly how long it takes.</p></div></section>
+<section class="sec"><div class="wrap" style="max-width:920px"><ol class="tl">${steps.map((x, i) => `<li><span class="n">${i + 1}</span><div><span class="kicker">${esc(x[1])} · ${esc(x[3])}</span><h3>${esc(x[0])}</h3><p>${esc(x[2])}</p></div></li>`).join('')}</ol>
+<p class="meta" style="margin-top:18px">Times are typical, not guaranteed: they depend on the field, on reviewers' availability and on how quickly revisions come back. You can follow every stage of your own paper in the portal.</p></div></section>
+<section class="sec pillars"><div class="wrap"><div class="sec-h"><div><span class="kicker">Who does what</span><h2>The people behind every paper</h2></div></div><div class="pgrid">
+  <div class="pil"><h3>Authors</h3><p>Submit, follow every stage online, respond to reviewers, approve proofs, and download their certificates of publication.</p></div>
+  <div class="pil"><h3>Reviewers</h3><p>Independent experts who choose how long they need and how many reviews they take, and review in a secure viewer. Their identity is never shown to authors.</p></div>
+  <div class="pil"><h3>Editors</h3><p>Handling editors manage review; the Editor-in-Chief makes decisions. Every editor serves a fixed term under a signed agreement on ethics, confidentiality and conflicts of interest.</p></div>
+  <div class="pil"><h3>Editorial office</h3><p>Runs technical checks, production, proofs and publication, answers the contact form, and keeps the journals' records, archive and indexing up to date.</p></div>
+</div></div></section>
+<section class="sec"><div class="wrap" style="max-width:920px"><div class="sec-h"><div><span class="kicker">Principles</span><h2>What we hold ourselves to</h2></div></div>
+<div class="prose" style="font-size:16.5px">
+<p><b>Free to read, forever.</b> Every article is open access under CC BY 4.0. Authors keep their copyright, and the published version is archived outside our own website so it lasts.</p>
+<p><b>Decisions on merit.</b> Editors decide on scholarly quality alone. The publisher does not take part in decisions on individual papers, and editors handle no paper where they have a conflict of interest. Papers by editors or by the publisher's own people are handled entirely by someone else.</p>
+<p><b>Honest about mistakes.</b> Errors are corrected openly with a correction notice, never silently. Concerns about a paper can be raised with the editorial office at any time.</p>
+<p>Read the full <a href="/policies/peer-review/">peer review policy</a>, <a href="/policies/ethics/">publication ethics</a> and <a href="/policies/editorial-independence/">editorial independence</a> policies.</p>
+</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:22px"><a class="btn btn-primary" href="/portal/#/submit">Submit a manuscript</a><a class="btn btn-ghost" href="/aes/">About AES, our editorial system</a><a class="btn btn-ghost" href="/for-authors/">Author guidelines</a></div>
+</div></section>` });
+}
+function aesPage() {
+  const E = readJSON(path.join(ROOT, 'config/aes-errors.json'), { version: '2.0.0' });
+  const roles = [
+    ['Authors', ['Submit to any ACRI journal from one account, in six guided steps', 'Save drafts and come back later', 'See where your paper is at every stage, in plain words', 'Read decisions and every reviewer\'s comments in one place', 'Upload revisions with a response to reviewers', 'Check and approve proofs of the web page and PDF', 'Download a signed certificate of publication for each author']],
+    ['Reviewers', ['Accept or decline an invitation with one click', 'Read the manuscript in a secure viewer, no download needed', 'Choose how many days you need and how many reviews you take at a time', 'Pause reviewing while you are away', 'Score the paper and write separate comments for authors and editor', 'See the decision and the other reviewers\' comments afterwards']],
+    ['Editors and the board', ['Join by a personal link: add your own photo, bio and details, set a password and sign the editorial agreement', 'Handle manuscripts: invite reviewers, follow up, recommend a decision', 'Editor-in-Chief: assign editors and record decisions with the decision letter', 'Write letters on the journal letterhead, signed by you', 'Recommend authors, reviewers, board members and papers to the office', 'Receive a certificate of service at the end of your term']],
+    ['Editorial office', ['Technical checks, production, proofs and publication in one place', 'DOIs reserved on acceptance and registered automatically through Zenodo', 'Editorial board appointments with signed agreements, term reminders and automatic endings', 'Letters, notices and certificates on the letterhead, with a numbered register', 'Email from the portal, newsletters and calls for papers with one-click unsubscribe', 'ISSN, DOAJ, Web of Science and Scopus readiness checklists', 'One settings page for every connection, and an error log with reference numbers']],
+  ];
+  return layout({ title: 'AES · ACRI Editorial System', canonical: BASE + '/aes/', desc: 'AES, the ACRI Editorial System, runs submission, peer review, production and publication for ACRI Journals.', body: `
+<section class="onehero"><div class="wrap"><span class="onemark" style="font-size:34px"><b>AES</b><i></i><span>ACRI EDITORIAL SYSTEM</span></span>
+<h1>The system behind ACRI Journals.</h1><p>AES, the ACRI Editorial System, is the platform ACRI built to run its journals: submission, peer review, editorial decisions, production, publication and everything around them. Version ${esc(E.version)}.</p>
+<div class="onecta"><a class="btn btn-green" href="/portal/">Open the editorial portal</a><a class="btn btn-line" href="/how-it-works/">How a paper moves through it</a></div></div></section>
+<section class="sec"><div class="wrap" style="max-width:920px"><div class="sec-h"><div><span class="kicker">Why we built it</span><h2>Built in-house, for the way we work</h2></div></div>
+<div class="prose" style="font-size:16.5px">
+<p>Most journals rent a large commercial system. We built our own, so that it fits how ACRI's journals work and so that it stays fast, open and affordable for an independent publisher.</p>
+<p>Two parts work together. The <b>public website</b>, where articles are read, is a set of ready-made pages served from a global network, so articles open almost instantly anywhere and remain easy for search engines and Google Scholar to read. The <b>editorial portal</b> is where authors, reviewers and editors sign in with their <a href="/one/">ACRI One</a> account and do their work. When an article is published, AES builds its web page, typeset PDF, citations and feeds, and the site updates itself within minutes.</p>
+<p>Published work is preserved outside our own website: every article is deposited with Zenodo, the research repository run by CERN, which also registers its DOI.</p>
+</div></div></section>
+<section class="sec pillars"><div class="wrap"><div class="sec-h"><div><span class="kicker">The editorial portal</span><h2>What AES does for each person</h2></div></div>
+<div class="pgrid aesroles">${roles.map(([t, l]) => `<div class="pil"><h3>${esc(t)}</h3><ul>${l.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('')}</div></div></section>
+<section class="sec"><div class="wrap" style="max-width:920px"><div class="sec-h"><div><span class="kicker">Built to be trusted</span><h2>Privacy, security and reliability</h2></div></div>
+<div class="prose" style="font-size:16.5px">
+<p><b>Confidential review.</b> Manuscripts under review are visible only to the editors handling them and to invited reviewers, who read them in a secure viewer. Author names are kept off the review copy.</p>
+<p><b>Your account.</b> Passwords are never stored as written; they are kept only in a protected, scrambled form. ACRI will never ask for your password by email or phone.</p>
+<p><b>When something goes wrong.</b> AES shows a short code (for example <code>AES-NET-001</code>) that explains what happened. See the <a href="/aes/errors/">list of error codes</a>. If a page is slow, AES retries on its own and reloads gently, so your work is not lost.</p>
+<p><b>Your data.</b> Personal data is used only to run the journals, as set out in our <a href="/policies/privacy/">privacy policy</a>.</p>
+</div></div></section>
+<section class="sec" style="border:0"><div class="wrap" style="max-width:920px"><div class="sec-h"><div><span class="kicker">Release notes</span><h2>Versions</h2></div></div>
+<table class="aes-err"><tbody>
+<tr><td><code>AES 2.0.0</code></td><td><b>November 2026</b><p>The name AES; ACRI One accounts; error codes and an error log; gentler loading with automatic retries; board members join by a personal link and add their own photo, bio and details; reviewing preferences; letters on the journal letterhead; recommendations; certificates of publication; full Zenodo metadata.</p></td></tr>
+<tr><td><code>AES 1.0</code></td><td><b>November 2026</b><p>First release: the ACRI Journals website, submission and peer review, production with automatic web and PDF typesetting, DOIs through Zenodo, editorial board appointments with signed agreements, campaigns, partners, back issues, policies and ISSN and indexing readiness.</p></td></tr>
+</tbody></table></div></section>` });
+}
+
 function onePage() {
   const mark = (size) => `<span class="onemark" style="font-size:${size}px"><b>ACRI</b><i></i><span>ONE</span></span>`;
   return layout({ title: 'ACRI One', canonical: BASE + '/one/', desc: 'ACRI One is your single account for ACRI services, starting with ACRI Journals: submit, review and edit across every ACRI journal.', body: `
@@ -609,7 +677,7 @@ function onePage() {
 <section class="sec"><div class="wrap">
   <div class="sec-h"><div><span class="kicker">Available with ACRI One</span><h2>Services</h2></div></div>
   <div class="onegrid">
-    <a class="onesvc" href="/portal/#/login"><span class="kicker">Live</span><h3>ACRI Journals</h3><p>Submit manuscripts, follow every stage of review, act as a reviewer or editor, and download your certificates of publication. Runs on AES, the ACRI Editorial System.</p><span class="go">Sign in →</span></a>
+    <a class="onesvc" href="/portal/#/login"><span class="kicker">Live</span><h3>ACRI Journals</h3><p>Submit manuscripts, follow every stage of review, act as a reviewer or editor, and download your certificates of publication. Runs on <u>AES</u>, the ACRI Editorial System.</p><span class="go">Sign in →</span></a>
     <div class="onesvc soon"><span class="kicker">Planned</span><h3>More ACRI services</h3><p>Other ACRI platforms will join ACRI One over time. Each will be listed here when it is ready to use your account.</p></div>
   </div>
 </div></section>
@@ -617,7 +685,7 @@ function onePage() {
   <div class="pil"><h3>One account, every journal</h3><p>You do not need a separate login for each journal. The same account works for IJBMRS, IJELF, IJSRI and every future ACRI journal.</p></div>
   <div class="pil"><h3>Your roles follow you</h3><p>Whether you are an author, a reviewer, an editor or all three, you see the right tools after signing in.</p></div>
   <div class="pil"><h3>Forgot your password?</h3><p>Use <a href="/portal/#/forgot">Reset your password</a>. We email you a link that is valid for one hour.</p></div>
-  <div class="pil"><h3>Keep it safe</h3><p>ACRI will never ask for your password by email or phone. Sign in only at acriindia.org.in or one.acriindia.org.in.</p></div>
+  <div class="pil"><h3>Keep it safe</h3><p>ACRI will never ask for your password by email or phone. Sign in only at acriindia.org.in.</p></div>
 </div></div></section>`, });
 }
 
@@ -728,6 +796,8 @@ async function main() {
   page('/contact/', contactPage());
   page('/aes/errors/', aesErrorsPage(), false);
   page('/one/', onePage());
+  page('/how-it-works/', howItWorksPage());
+  page('/aes/', aesPage());
   // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
   const pageFiles = {};
   for (const dir of [path.join(ROOT, 'build', 'pages'), path.join(CONTENT, 'pages')])

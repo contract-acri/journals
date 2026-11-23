@@ -450,3 +450,16 @@ a.onesvc:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
 .onesvc .go{font-weight:600;color:var(--navy)}
 .onefaq .pil h3{margin-top:0}
 @media (max-width:560px){.onehero h1{font-size:34px}}
+
+/* how it works timeline + AES */
+.tl{list-style:none;margin:0;padding:0;position:relative}
+.tl::before{content:"";position:absolute;left:21px;top:8px;bottom:8px;width:2px;background:linear-gradient(var(--green),var(--navy))}
+.tl li{display:grid;grid-template-columns:44px 1fr;gap:18px;padding:0 0 26px;position:relative}
+.tl .n{width:44px;height:44px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font:700 16px var(--sans);box-shadow:0 0 0 5px #fff;position:relative;z-index:1}
+.tl li:last-child .n{background:var(--green)}
+.tl h3{font:600 22px/1.25 var(--serif);margin:4px 0 6px}
+.tl p{margin:0;color:var(--ink-2);font-size:15.5px;line-height:1.6}
+.tl .kicker{color:var(--green)}
+.aesroles ul{margin:6px 0 0;padding-left:18px}
+.aesroles li{font-size:14.5px;color:var(--ink-2);margin:6px 0;line-height:1.45}
+.onehero .onemark span{letter-spacing:.24em}
