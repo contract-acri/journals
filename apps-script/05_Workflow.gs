@@ -230,7 +230,7 @@ function sub_get(p, u) {
     v.editor = s.editorId ? publicUser_(users[s.editorId]) : null;
     v.history = acts.map(a => ({ ts: a.ts, action: a.action, detail: a.detail, by: users[a.userId] ? nameOf_(users[a.userId]) : a.userId }));
     v.reviews = reviews.map(r => ({ id: r.id, version: r.version, number: r.number, status: r.status, reviewer: users[r.reviewerId] ? { name: nameOf_(users[r.reviewerId]), email: users[r.reviewerId].email, affiliation: users[r.reviewerId].affiliation } : null, invitedAt: r.invitedAt, respondedAt: r.respondedAt, due: r.due, submittedAt: r.submittedAt, scores: r.scores, recommendation: r.recommendation, toAuthor: r.toAuthor, toEditor: r.toEditor, reminders: r.reminders }));
-    v.boardMembers = ['eic', 'senior', 'editor', 'board'].reduce((a, r) => a.concat(journalStaff_(s.journal, r)), []).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i).map(x => ({ id: x.id, name: nameOf_(x), email: x.email }));
+    v.boardMembers = ['eic', 'senior', 'editor', 'board'].reduce((a, r) => a.concat(journalStaff_(s.journal, r)), []).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i).map(x => ({ id: x.id, name: nameOf_(x), email: x.email, reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2, paused: x.reviewPauseUntil && String(x.reviewPauseUntil).slice(0, 10) >= today_() ? String(x.reviewPauseUntil).slice(0, 10) : '' }));
     v.canDecide = role === 'admin' || role === 'eic';
   }
   return { ok: true, sub: v };
@@ -305,13 +305,18 @@ function ed_inviteReviewer(p, u) {
       r = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, affiliation: p.affiliation || '', passHash: '', salt: token_().slice(0, 16), verified: true, reviewer: true, roles: {}, status: 'invited', created: now_() });
     }
     need_(!where_('Reviews', x => x.subId === s.id && x.reviewerId === r.id && String(x.version) === String(s.version) && x.status !== 'cancelled').length, 'This reviewer is already invited for this version.');
+    if (!p.force) {
+      need_(!(r.reviewPauseUntil && String(r.reviewPauseUntil).slice(0, 10) >= today_()), nameOf_(r) + ' is not taking reviews until ' + String(r.reviewPauseUntil).slice(0, 10) + (r.reviewNote ? ' (' + r.reviewNote + ')' : '') + '. Invite someone else, or tick "invite anyway".');
+      const busy = where_('Reviews', x => x.reviewerId === r.id && ['invited', 'accepted'].indexOf(x.status) >= 0).length;
+      need_(!r.reviewMax || busy < Number(r.reviewMax), nameOf_(r) + ' has asked for at most ' + r.reviewMax + ' review(s) at a time and already has ' + busy + '. Invite someone else, or tick "invite anyway".');
+    }
     const n = where_('Reviews', x => x.subId === s.id).reduce((m, x) => Math.max(m, Number(x.number) || 0), 0);
     const prev = where_('Reviews', x => x.subId === s.id && x.reviewerId === r.id)[0];
     const rv = insert_('Reviews', { id: uid_('R'), subId: s.id, version: s.version, reviewerId: r.id, number: prev ? prev.number : n + 1, status: 'invited', invitedBy: u.id, invitedAt: now_(), due: '', reminders: 0, token: token_() });
     if (s.status === 'with_editor') update_('Submissions', 'id', s.id, { status: 'under_review', editorId: s.editorId || u.id, updated: now_() });
     log_(s.id, u.id, 'reviewer_invited', nameOf_(r) + ' <' + email + '>');
     const j = journalRow_(s.journal);
-    mailTemplate_('review_invite', email, { name: nameOf_(r), id: s.id, title: s.title, type: s.type, journal: j.name, abstract: abstractHtml_(s), accept: portalUrl_('review?token=' + rv.token + '&a=accept'), decline: portalUrl_('review?token=' + rv.token + '&a=decline') }, { journal: s.journal });
+    mailTemplate_('review_invite', email, { name: nameOf_(r), id: s.id, title: s.title, type: s.type, journal: j.name, abstract: abstractHtml_(s), accept: portalUrl_('review?token=' + rv.token + '&a=accept'), decline: portalUrl_('review?token=' + rv.token + '&a=decline'), days: Math.min(Math.max(Number(r.reviewDays) || CFG.REVIEW_DAYS, 7), 60) }, { journal: s.journal });
     return { ok: true };
   });
 }
@@ -376,7 +381,7 @@ function rev_respond(p) {
   const r = review_(p.token); need_(r.status === 'invited', 'You have already responded to this invitation.');
   const s = sub_(r.subId), j = journalRow_(s.journal), rv = find_('Users', 'id', r.reviewerId);
   const patch = { status: p.accept ? 'accepted' : 'declined', respondedAt: now_() };
-  if (p.accept) patch.due = addDays_(CFG.REVIEW_DAYS);
+  if (p.accept) { const me = find_('Users', 'id', r.reviewerId) || {}; patch.due = addDays_(Math.min(Math.max(Number(me.reviewDays) || CFG.REVIEW_DAYS, 7), 60)); }
   update_('Reviews', 'id', r.id, patch);
   log_(s.id, r.reviewerId, p.accept ? 'review_accepted' : 'review_declined', (p.reason || '') + (p.suggest ? ' Suggested: ' + p.suggest : ''));
   const ed = s.editorId ? find_('Users', 'id', s.editorId) : null;

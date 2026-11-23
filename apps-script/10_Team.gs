@@ -88,30 +88,34 @@ function team_appoint(p, u) {
   const j = journalRow_(p.journal), email = normEmail_(p.email);
   need_(/@/.test(email), 'Enter an email.');
   return withLock_(() => {
+    const days = [1, 3, 7, 14, 30].indexOf(Number(p.days)) >= 0 ? Number(p.days) : 7;
     let x = find_('Users', 'email', email), setPw = '';
     if (!x) {
       need_(p.given && p.family, 'Enter the person\'s first and last name (they do not have an account yet).');
       const t = token_();
-      x = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + 30 * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
+      x = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
       setPw = portalUrl_('reset?token=' + t);
     }
     need_(!where_('Appointments', a => a.userId === x.id && a.journal === p.journal && a.role === p.role && ['pending', 'active'].indexOf(a.status) >= 0 && String(a.end) >= p.start).length, 'This person already has this role for an overlapping term.');
     const prof = {}; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'country', 'degrees', 'orcid'].forEach(k => { if (p[k]) prof[k] = p[k]; });
     if (Object.keys(prof).length) update_('Users', 'id', x.id, prof);
-    const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_() });
+    const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_(), expires: new Date(Date.now() + days * 864e5).toISOString(), transfer: !!p.transfer });
     sendAppointment_(a, x, j, setPw);
     return { ok: true, id: a.id };
   });
 }
 function sendAppointment_(a, x, j, setPw) {
-  mailTemplate_('appoint', x.email, { name: x.given, role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf }, { journal: a.journal });
+  const exp = a.expires ? Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy, h:mm a') + ' IST' : '';
+  mailTemplate_('appoint', x.email, { name: x.given, role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
 }
 function team_resend(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
   need_(a.status === 'pending', 'Only unsigned appointments can be resent.');
   const x = find_('Users', 'id', a.userId); let setPw = '';
-  if (!x.passHash) { const t = token_(); update_('Users', 'id', x.id, { resetToken: t, resetExpires: new Date(Date.now() + 30 * 864e5).toISOString() }); setPw = portalUrl_('reset?token=' + t); }
-  sendAppointment_(a, x, journalRow_(a.journal), setPw);
+  const days = [1, 3, 7, 14, 30].indexOf(Number(p.days)) >= 0 ? Number(p.days) : 7;
+  const fresh = update_('Appointments', 'id', a.id, { token: token_(), expires: new Date(Date.now() + days * 864e5).toISOString() });
+  if (!x.passHash) { const t = token_(); update_('Users', 'id', x.id, { resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString() }); setPw = portalUrl_('reset?token=' + t); }
+  sendAppointment_(fresh, x, journalRow_(a.journal), setPw);
   return { ok: true };
 }
 function team_update(p, u) {
@@ -160,10 +164,16 @@ function endAppointment_(a, reason, revoked) {
 }
 
 // ------------------------------------------------------------ agreement (token link, no password needed)
-function appt_(token) { const a = find_('Appointments', 'token', token); need_(a && token, 'This agreement link is invalid.'); return a; }
+function appt_(token) {
+  const a = find_('Appointments', 'token', token); need_(a && token, 'This agreement link is invalid or has been replaced by a newer one. Please use the latest email, or ask the journal office to resend it.');
+  if (a.status === 'pending') need_(!a.expires || new Date(a.expires) > new Date(), 'This link expired on ' + Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy') + '. Please write to the journal office (use the contact form on the website) and they will send you a new one.');
+  return a;
+}
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash } };
+  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+    profile: { degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
   const a = appt_(p.token); need_(a.status === 'pending', a.status === 'active' ? 'You have already signed this agreement.' : 'This appointment is no longer open for signature.');
@@ -171,6 +181,18 @@ function agreement_sign(p) {
   const x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   const typed = String(p.name || '').trim().replace(/\s+/g, ' ');
   need_(typed.length >= 3 && typed.toLowerCase().indexOf(String(x.family).toLowerCase()) >= 0, 'Please type your full name, including "' + x.family + '", as your signature.');
+  // Confirm the member's public board details (ISSN India / indexers need them), reviewing preferences and password.
+  const pr = p.profile || {}, prof = {};
+  ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
+  if (p.profile) {
+    need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
+    if (prof.instEmail) need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(prof.instEmail), 'Institutional email is not valid.');
+    if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
+  }
+  Object.assign(prof, reviewPrefs_(p.prefs || {}));
+  if (p.prefs && p.prefs.reviewer !== undefined) prof.reviewer = !!p.prefs.reviewer;
+  if (!x.passHash) { need_(p.password && String(p.password).length >= 8, 'Please choose a password of at least 8 characters for the portal.'); prof.salt = token_().slice(0, 16); prof.passHash = hashPw_(p.password, prof.salt); prof.verified = true; prof.resetToken = ''; }
+  if (Object.keys(prof).length) Object.assign(x, update_('Users', 'id', x.id, prof));
   const signedAt = now_();
   const meta = { ua: String(p.ua || '').slice(0, 300), tz: p.tz || '', lang: p.lang || '' };
   const pdf = pdfFromHtml_(agreementHtml_(a, x, j) + `<div style="margin-top:26px;border-top:1px solid #ccc;padding-top:12px"><p><b>Signed electronically by:</b> ${esc_(typed)} &lt;${esc_(x.email)}&gt;<br><b>Date and time:</b> ${Utilities.formatDate(new Date(signedAt), 'Asia/Kolkata', 'd MMMM yyyy, HH:mm')} IST<br><b>Agreement version:</b> ${AGREEMENT_VERSION} · <b>Reference:</b> ${a.id}<br><b>Client:</b> ${esc_(meta.ua)}</p></div>`, 'Editorial Agreement - ' + x.family + ' - ' + j.code + ' - ' + a.id + '.pdf');
@@ -218,7 +240,7 @@ function termsTick() {
 
 // ------------------------------------------------------------ email templates for the team
 Object.assign(TEMPLATES, {
-  appoint: d => [`${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>${btn_(d.link, 'Review and sign the agreement')}${d.setPw ? `<p>An ACRI Journals account has been created for you. <a href="${d.setPw}">Set your password here</a> (the link is valid for 30 days).</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
+  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
   appoint_signed: d => [`Welcome: your appointment as ${d.role} is active`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for signing the Editorial Agreement. Your appointment as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> is now active, from ${d.start} to ${d.end}.</p><p>A signed copy of the agreement is attached. Your editorial tools are available in the portal.</p>${btn_(d.link, 'Open the editorial portal')}<p>Welcome to the team.</p>`],
   appoint_declined: d => [`Appointment declined: ${d.who} (${d.role})`, `<p>${esc_(d.who)} has declined the appointment as ${esc_(d.role)} of ${esc_(d.journal)}.</p>${d.reason ? quote_(d.reason) : ''}`],
   term_reminder: d => [`Your term as ${d.role} ends on ${d.end}`, `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> ends on <b>${d.end}</b> (${d.days} days from now).</p>${d.renewed ? '<p>A renewal has already been arranged. Please make sure you have signed the new agreement.</p>' : '<p>If you would like to continue, please reply to this email. The editorial office can send you a renewal. Otherwise, please hand over any manuscripts you are handling before your term ends.</p>'}<p>Thank you for your service to the journal.</p>`],

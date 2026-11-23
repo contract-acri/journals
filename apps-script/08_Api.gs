@@ -25,6 +25,7 @@ const PRIVATE = {
   'mail.send': mail_send, 'mail.stop': mail_stop, 'mail.duplicate': mail_duplicate, 'mail.automations': mail_automations, 'mail.saveAutomation': mail_saveAutomation,
   'msg.list': msg_list, 'msg.update': msg_update, 'set.get': set_get, 'set.save': set_save, 'set.test': set_test,
   'sig.list': sig_list, 'sig.save': sig_save, 'letter.preview': letter_preview, 'letter.create': letter_create, 'letter.list': letter_list, 'letter.file': letter_file,
+  'team.import': team_import, 'rec.submit': rec_submit, 'rec.list': rec_list, 'rec.update': rec_update, 'me.signature': me_signature, 'me.tools': me_tools,
   'cert.get': cert_get, 'cert.reset': cert_reset, 'mail.compose': mail_compose, 'mail.sent': mail_sent,
   'partner.list': partner_list, 'partner.save': partner_save,
   'idx.readiness': idx_readiness, 'idx.tick': idx_tick, 'idx.pack': idx_issnPack, 'idx.stage': idx_issnStage, 'adm.logo': adm_logo,

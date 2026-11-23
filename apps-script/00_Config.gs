@@ -44,7 +44,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -54,7 +54,7 @@ const SCHEMA = {
   Issues: ['journal', 'volume', 'issue', 'year', 'label', 'title', 'status', 'pdf'],
   Subscribers: ['email', 'status', 'token', 'journals', 'created'],
   EmailLog: ['ts', 'to', 'subject', 'status', 'detail'],
-  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created'],
+  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer'],
   Contacts: ['email', 'name', 'list', 'status', 'token', 'source', 'consent', 'tags', 'created', 'updated', 'lastSent', 'sentCount'],
   Campaigns: ['id', 'journal', 'name', 'subject', 'preheader', 'preset', 'content', 'sender', 'audience', 'status', 'scheduledAt', 'createdBy', 'created', 'updated', 'stats', 'sentAt'],
   Queue: ['id', 'campaignId', 'email', 'name', 'token', 'status', 'error', 'ts'],
@@ -63,6 +63,7 @@ const SCHEMA = {
   Letters: ['id', 'ref', 'type', 'journal', 'to', 'subject', 'body', 'signatory', 'date', 'fileId', 'createdBy', 'created'],
   Certificates: ['id', 'articleId', 'journal', 'author', 'name', 'ref', 'fileId', 'created'],
   SentMail: ['id', 'ts', 'by', 'from', 'to', 'cc', 'bcc', 'subject', 'body', 'attachments', 'status', 'detail'],
+  Recommendations: ['id', 'journal', 'kind', 'name', 'email', 'affiliation', 'url', 'note', 'by', 'byName', 'status', 'created', 'updated', 'handledBy'],
   Messages: ['id', 'journal', 'to', 'name', 'email', 'role', 'msId', 'subject', 'body', 'status', 'created', 'readAt', 'readBy', 'reply', 'repliedAt', 'repliedBy', 'note', 'meta'],
   Partners: ['id', 'name', 'type', 'url', 'logoUrl', 'country', 'description', 'contactName', 'contactEmail', 'contactPhone', 'journals', 'message', 'status', 'showOnSite', 'order', 'created', 'decidedAt', 'decidedBy', 'note'],
 };

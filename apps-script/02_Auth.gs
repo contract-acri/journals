@@ -10,7 +10,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -127,6 +127,7 @@ function auth_profile(p, u) {
   ['given', 'family', 'degrees', 'affiliation', 'country', 'phone', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'].forEach(k => { if (p[k] !== undefined) patch[k] = String(p[k]).trim(); });
   if (p.orcid !== undefined) patch.orcid = String(p.orcid).replace(/^https?:\/\/orcid.org\//, '').trim();
   if (p.reviewer !== undefined) patch.reviewer = !!p.reviewer;
+  Object.assign(patch, reviewPrefs_(p));
   if (p.subjects !== undefined) patch.subjects = p.subjects;
   if (p.newPassword) {
     need_(hashPw_(p.currentPassword || '', u.salt) === u.passHash, 'Your current password is incorrect.');

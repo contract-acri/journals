@@ -53,7 +53,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -63,7 +63,7 @@ const SCHEMA = {
   Issues: ['journal', 'volume', 'issue', 'year', 'label', 'title', 'status', 'pdf'],
   Subscribers: ['email', 'status', 'token', 'journals', 'created'],
   EmailLog: ['ts', 'to', 'subject', 'status', 'detail'],
-  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created'],
+  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer'],
   Contacts: ['email', 'name', 'list', 'status', 'token', 'source', 'consent', 'tags', 'created', 'updated', 'lastSent', 'sentCount'],
   Campaigns: ['id', 'journal', 'name', 'subject', 'preheader', 'preset', 'content', 'sender', 'audience', 'status', 'scheduledAt', 'createdBy', 'created', 'updated', 'stats', 'sentAt'],
   Queue: ['id', 'campaignId', 'email', 'name', 'token', 'status', 'error', 'ts'],
@@ -72,6 +72,7 @@ const SCHEMA = {
   Letters: ['id', 'ref', 'type', 'journal', 'to', 'subject', 'body', 'signatory', 'date', 'fileId', 'createdBy', 'created'],
   Certificates: ['id', 'articleId', 'journal', 'author', 'name', 'ref', 'fileId', 'created'],
   SentMail: ['id', 'ts', 'by', 'from', 'to', 'cc', 'bcc', 'subject', 'body', 'attachments', 'status', 'detail'],
+  Recommendations: ['id', 'journal', 'kind', 'name', 'email', 'affiliation', 'url', 'note', 'by', 'byName', 'status', 'created', 'updated', 'handledBy'],
   Messages: ['id', 'journal', 'to', 'name', 'email', 'role', 'msId', 'subject', 'body', 'status', 'created', 'readAt', 'readBy', 'reply', 'repliedAt', 'repliedBy', 'note', 'meta'],
   Partners: ['id', 'name', 'type', 'url', 'logoUrl', 'country', 'description', 'contactName', 'contactEmail', 'contactPhone', 'journals', 'message', 'status', 'showOnSite', 'order', 'created', 'decidedAt', 'decidedBy', 'note'],
 };
@@ -205,7 +206,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -322,6 +323,7 @@ function auth_profile(p, u) {
   ['given', 'family', 'degrees', 'affiliation', 'country', 'phone', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'].forEach(k => { if (p[k] !== undefined) patch[k] = String(p[k]).trim(); });
   if (p.orcid !== undefined) patch.orcid = String(p.orcid).replace(/^https?:\/\/orcid.org\//, '').trim();
   if (p.reviewer !== undefined) patch.reviewer = !!p.reviewer;
+  Object.assign(patch, reviewPrefs_(p));
   if (p.subjects !== undefined) patch.subjects = p.subjects;
   if (p.newPassword) {
     need_(hashPw_(p.currentPassword || '', u.salt) === u.passHash, 'Your current password is incorrect.');
@@ -435,42 +437,76 @@ function zenodoReserve_(sub, j) {
   const d = zen_('post', '/deposit/depositions', { metadata: zenodoMeta_(sub, j, true) });
   return { id: String(d.id), doi: d.metadata.prereserve_doi.doi };
 }
+/** Full Zenodo metadata. Uses the published article (article.json in GitHub) when available, so the
+ *  record carries everything the website shows: abstract, keywords, references, journal details, links. */
 function zenodoMeta_(sub, j, minimal) {
-  const authors = sub.authors || [], affs = sub.affiliations || [];
+  let a = null;
+  if (!minimal) { try { a = articleJson_(sub.journal, sub.id); } catch (e) { } }
+  const src = a || sub, affs = src.affiliations || [];
+  const affName = (ids) => (ids || []).map(id => (affs.find(f => String(f.id) === String(id)) || {}).name).filter(String)[0];
   const m = {
-    upload_type: 'publication', publication_type: 'article', prereserve_doi: true,
-    title: sub.title + (sub.subtitle ? ': ' + sub.subtitle : ''),
-    creators: authors.map(a => {
-      const c = { name: a.family + ', ' + a.given };
-      const af = (a.affiliations || []).map(id => (affs.find(f => f.id === id) || {}).name).filter(String)[0];
-      if (af) c.affiliation = af; if (a.orcid) c.orcid = a.orcid; return c;
-    }),
-    description: abstractHtml_(sub) || sub.title,
-    access_right: 'open', license: 'cc-by-4.0',
-    keywords: sub.keywords || [],
-    journal_title: j.name, journal_volume: String(sub.volume || ''), journal_issue: String(sub.issue || ''),
+    upload_type: 'publication', publication_type: 'article',
+    title: String(src.title || '').replace(/<[^>]+>/g, '') + (src.subtitle ? ': ' + src.subtitle : ''),
+    creators: (src.authors || []).map(x => { const c = { name: x.family + ', ' + x.given }; const af = affName(x.affiliations); if (af) c.affiliation = af; if (x.orcid) c.orcid = String(x.orcid).replace(/^https?:\/\/orcid.org\//, ''); return c; }),
+    description: abstractHtml_({ abstract: src.abstract }) || String(src.title || ''),
+    access_right: 'open', license: 'cc-by-4.0', language: 'eng',
+    keywords: (src.keywords || []).filter(String),
+    publication_date: String(src.published || sub.published || today_()).slice(0, 10),
+    journal_title: j.name, journal_volume: String(src.volume || ''), journal_issue: String(src.issue || ''),
   };
-  if (!minimal) {
-    m.publication_date = sub.published || today_();
-    m.related_identifiers = [{ identifier: articleUrl_(sub), relation: 'isIdenticalTo', resource_type: 'publication-article', scheme: 'url' }];
-    m.journal_pages = sub.elocator || ('e' + sub.id.split('-').slice(1).join(''));
-    m.notes = 'Published in ' + j.name + ' by ' + CFG.PUBLISHER + '.';
-    const comm = prop_('ZENODO_COMMUNITY', '');
-    if (comm) m.communities = [{ identifier: comm }];
-  }
+  if (minimal) { m.prereserve_doi = true; return m; }
+  const url = articleUrl_(sub), jurl = siteUrl_() + '/journals/' + j.slug + '/';
+  m.journal_pages = src.firstPage ? src.firstPage + (src.lastPage ? '-' + src.lastPage : '') : (src.elocator || ('e' + String(sub.id).split('-').slice(1).join('')));
+  m.related_identifiers = [
+    { identifier: url, relation: 'isIdenticalTo', resource_type: 'publication-article', scheme: 'url' },
+    { identifier: jurl, relation: 'isPartOf', scheme: 'url' },
+  ];
+  if (j.issnOnline || j.issn) m.related_identifiers.push({ identifier: j.issnOnline || j.issn, relation: 'isPartOf', scheme: 'issn' });
+  if (a && a.previousDoi) m.related_identifiers.push({ identifier: a.previousDoi, relation: 'isIdenticalTo', scheme: 'doi' });
+  const refs = ((a && a.references) || []).map(r => String(r.text || r).replace(/<[^>]+>/g, '').trim()).filter(String);
+  if (refs.length) m.references = refs;
+  const info = (a && a.info) || {};
+  m.notes = (src.type || 'Article') + ' published in ' + j.name + (j.issnOnline ? ' (e-ISSN ' + j.issnOnline + ')' : '') + ' by ' + (siteConfig_().publisherName || CFG.LEGAL_ENTITY) + '. Version of record: ' + url +
+    (info.funding ? ' Funding: ' + info.funding : '') + (info.conflicts ? ' Conflicts of interest: ' + info.conflicts : '');
+  const comm = prop_('ZENODO_COMMUNITY', '');
+  if (comm) m.communities = [{ identifier: comm }];
   return m;
 }
-/** Upload the published PDF from the live site and publish the deposition (registers the DOI with DataCite). */
+/** The article PDF: the live site first, then the copy stored in GitHub (typeset or uploaded). */
+function articlePdfBytes_(journal, id) {
+  const live = UrlFetchApp.fetch(siteUrl_() + '/journals/' + journal + '/articlepdf/' + String(id).toLowerCase() + '.pdf', { muteHttpExceptions: true });
+  if (live.getResponseCode() === 200 && /pdf/i.test(live.getHeaders()['Content-Type'] || live.getHeaders()['content-type'] || 'pdf')) return live.getContent();
+  const own = ghBytes_('content/articles/' + journal + '/' + id + '/article.pdf'); if (own) return own;
+  const dir = gh_('get', '/contents/content/typeset?ref=' + prop_('GITHUB_BRANCH', 'main')) || [];
+  const f = dir.filter(x => x.name.indexOf(id + '-') === 0).pop();
+  return f ? ghBytes_('content/typeset/' + f.name) : null;
+}
+function ghBytes_(path) {
+  const r = gh_('get', '/contents/' + encodeURI(path) + '?ref=' + prop_('GITHUB_BRANCH', 'main'));
+  if (!r) return null;
+  if (r.content) return Utilities.base64Decode(r.content.replace(/\n/g, ''));
+  if (r.download_url) return UrlFetchApp.fetch(r.download_url, { headers: { Authorization: 'Bearer ' + prop_('GITHUB_TOKEN') } }).getContent();
+  return null;
+}
+/** Upload the PDF, send the full metadata and publish the deposition (registers the DOI with DataCite). */
 function zenodoRegister_(sub, j) {
   need_(sub.zenodoId, 'No Zenodo deposition for this article. Reserve a DOI first.');
-  const pdfUrl = siteUrl_() + '/journals/' + sub.journal + '/articlepdf/' + sub.id.toLowerCase() + '.pdf';
-  const pdf = UrlFetchApp.fetch(pdfUrl, { muteHttpExceptions: true });
-  need_(pdf.getResponseCode() === 200, 'The PDF is not live yet (' + pdfUrl + '). Wait for the site build to finish and try again.');
   let dep = zen_('get', '/deposit/depositions/' + sub.zenodoId);
-  if (dep.submitted) return { doi: dep.doi, url: dep.links.record_html || dep.links.html };
-  (dep.files || []).forEach(f => zen_('delete', '/deposit/depositions/' + sub.zenodoId + '/files/' + f.id));
-  zen_('put', dep.links.bucket + '/' + sub.id + '.pdf', null, pdf.getContent());
-  zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: zenodoMeta_(sub, j, false) });
+  if (dep.submitted && dep.state === 'done') return { doi: dep.doi, url: dep.links.record_html || dep.links.html };
+  if (dep.submitted) { try { dep = zen_('post', '/deposit/depositions/' + sub.zenodoId + '/actions/edit'); } catch (e) { } }
+  const pdf = articlePdfBytes_(sub.journal, sub.id);
+  need_(pdf, 'The article PDF could not be found (not on the website and not in GitHub). Wait for the website build to finish, then try again.');
+  if (!dep.submitted) {
+    (dep.files || []).forEach(f => zen_('delete', '/deposit/depositions/' + sub.zenodoId + '/files/' + f.id));
+    zen_('put', dep.links.bucket + '/' + sub.id + '.pdf', null, pdf);
+  }
+  const meta = zenodoMeta_(sub, j, false);
+  try { zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: meta }); }
+  catch (e) { // Retry without optional fields Zenodo may reject, keeping everything required.
+    ['references', 'communities', 'notes', 'language'].forEach(k => delete meta[k]);
+    meta.related_identifiers = meta.related_identifiers.filter(r => r.scheme === 'url');
+    zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: meta });
+  }
   dep = zen_('post', '/deposit/depositions/' + sub.zenodoId + '/actions/publish');
   return { doi: dep.doi, url: (dep.links && (dep.links.record_html || dep.links.html)) || '' };
 }
@@ -559,7 +595,7 @@ const TEMPLATES = {
   returned: d => [`Action needed: ${d.id} returned for corrections`, `<p>Dear ${esc_(d.name)},</p><p>The editorial office has checked your submission <b>${d.id}</b> and needs some corrections before it can go to the editor:</p>${quote_(d.note)}<p>Please make the changes and resubmit from the portal.</p>${btn_(d.link, 'Update submission', d.accent)}<p>Editorial Office<br>${esc_(d.journal)}</p>`],
   to_editor: d => [`[${d.code}] ${d.id} ready for editor screening`, `<p>Manuscript <b>${d.id}</b> has passed the technical check and is ready for screening.</p><p>${esc_(d.title)}</p>${btn_(d.link, 'Open manuscript', d.accent)}`],
   editor_assigned: d => [`[${d.code}] You are handling editor for ${d.id}`, `<p>Dear ${esc_(d.name)},</p><p>The Editor-in-Chief has assigned you as handling editor for:</p><p><b>${esc_(d.title)}</b> (${d.id})</p><p>Please invite at least two reviewers from the portal.</p>${btn_(d.link, 'Open manuscript', d.accent)}`],
-  review_invite: d => [`Invitation to review for ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>You are invited to review the following manuscript for <b>${esc_(d.journal)}</b>:</p><p><b>${esc_(d.title)}</b><br><span style="color:#5E6875">${esc_(d.type)} · ${d.id}</span></p><p style="font-size:14px">${d.abstract}</p><p>If you accept, we ask for your report within <b>${CFG.REVIEW_DAYS} days</b>. The manuscript opens securely in the reviewer portal.</p>${btn_(d.accept, 'Accept invitation', d.accent)}<p><a href="${d.decline}" style="color:#5E6875">Decline invitation</a></p><p style="color:#5E6875;font-size:13px">Please decline if you have a conflict of interest. Manuscripts under review are confidential.</p>`],
+  review_invite: d => [`Invitation to review for ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>You are invited to review the following manuscript for <b>${esc_(d.journal)}</b>:</p><p><b>${esc_(d.title)}</b><br><span style="color:#5E6875">${esc_(d.type)} · ${d.id}</span></p><p style="font-size:14px">${d.abstract}</p><p>If you accept, we ask for your report within <b>${d.days || CFG.REVIEW_DAYS} days</b>. The manuscript opens securely in the reviewer portal.</p>${btn_(d.accept, 'Accept invitation', d.accent)}<p><a href="${d.decline}" style="color:#5E6875">Decline invitation</a></p><p style="color:#5E6875;font-size:13px">Please decline if you have a conflict of interest. Manuscripts under review are confidential.</p>`],
   review_reminder: d => [`Reminder: review for ${d.id} is due ${d.due}`, `<p>Dear ${esc_(d.name)},</p><p>This is a friendly reminder that your review of <b>${esc_(d.title)}</b> (${d.id}) is due on <b>${d.due}</b>.</p>${btn_(d.link, 'Open review', d.accent)}<p>If you need more time, please reply to this email.</p>`],
   invite_reminder: d => [`Reminder: invitation to review ${d.id}`, `<p>Dear ${esc_(d.name)},</p><p>We have not yet heard whether you can review <b>${esc_(d.title)}</b> for ${esc_(d.journal)}.</p>${btn_(d.accept, 'Accept invitation', d.accent)}<p><a href="${d.decline}" style="color:#5E6875">Decline</a></p>`],
   review_thanks: d => [`Thank you for your review of ${d.id}`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for reviewing <b>${esc_(d.title)}</b> for ${esc_(d.journal)}. We are grateful for your time and expertise. We will let you know the editor's decision.</p>`],
@@ -839,7 +875,7 @@ function sub_get(p, u) {
     v.editor = s.editorId ? publicUser_(users[s.editorId]) : null;
     v.history = acts.map(a => ({ ts: a.ts, action: a.action, detail: a.detail, by: users[a.userId] ? nameOf_(users[a.userId]) : a.userId }));
     v.reviews = reviews.map(r => ({ id: r.id, version: r.version, number: r.number, status: r.status, reviewer: users[r.reviewerId] ? { name: nameOf_(users[r.reviewerId]), email: users[r.reviewerId].email, affiliation: users[r.reviewerId].affiliation } : null, invitedAt: r.invitedAt, respondedAt: r.respondedAt, due: r.due, submittedAt: r.submittedAt, scores: r.scores, recommendation: r.recommendation, toAuthor: r.toAuthor, toEditor: r.toEditor, reminders: r.reminders }));
-    v.boardMembers = ['eic', 'senior', 'editor', 'board'].reduce((a, r) => a.concat(journalStaff_(s.journal, r)), []).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i).map(x => ({ id: x.id, name: nameOf_(x), email: x.email }));
+    v.boardMembers = ['eic', 'senior', 'editor', 'board'].reduce((a, r) => a.concat(journalStaff_(s.journal, r)), []).filter((x, i, a) => a.findIndex(y => y.id === x.id) === i).map(x => ({ id: x.id, name: nameOf_(x), email: x.email, reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2, paused: x.reviewPauseUntil && String(x.reviewPauseUntil).slice(0, 10) >= today_() ? String(x.reviewPauseUntil).slice(0, 10) : '' }));
     v.canDecide = role === 'admin' || role === 'eic';
   }
   return { ok: true, sub: v };
@@ -914,13 +950,18 @@ function ed_inviteReviewer(p, u) {
       r = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, affiliation: p.affiliation || '', passHash: '', salt: token_().slice(0, 16), verified: true, reviewer: true, roles: {}, status: 'invited', created: now_() });
     }
     need_(!where_('Reviews', x => x.subId === s.id && x.reviewerId === r.id && String(x.version) === String(s.version) && x.status !== 'cancelled').length, 'This reviewer is already invited for this version.');
+    if (!p.force) {
+      need_(!(r.reviewPauseUntil && String(r.reviewPauseUntil).slice(0, 10) >= today_()), nameOf_(r) + ' is not taking reviews until ' + String(r.reviewPauseUntil).slice(0, 10) + (r.reviewNote ? ' (' + r.reviewNote + ')' : '') + '. Invite someone else, or tick "invite anyway".');
+      const busy = where_('Reviews', x => x.reviewerId === r.id && ['invited', 'accepted'].indexOf(x.status) >= 0).length;
+      need_(!r.reviewMax || busy < Number(r.reviewMax), nameOf_(r) + ' has asked for at most ' + r.reviewMax + ' review(s) at a time and already has ' + busy + '. Invite someone else, or tick "invite anyway".');
+    }
     const n = where_('Reviews', x => x.subId === s.id).reduce((m, x) => Math.max(m, Number(x.number) || 0), 0);
     const prev = where_('Reviews', x => x.subId === s.id && x.reviewerId === r.id)[0];
     const rv = insert_('Reviews', { id: uid_('R'), subId: s.id, version: s.version, reviewerId: r.id, number: prev ? prev.number : n + 1, status: 'invited', invitedBy: u.id, invitedAt: now_(), due: '', reminders: 0, token: token_() });
     if (s.status === 'with_editor') update_('Submissions', 'id', s.id, { status: 'under_review', editorId: s.editorId || u.id, updated: now_() });
     log_(s.id, u.id, 'reviewer_invited', nameOf_(r) + ' <' + email + '>');
     const j = journalRow_(s.journal);
-    mailTemplate_('review_invite', email, { name: nameOf_(r), id: s.id, title: s.title, type: s.type, journal: j.name, abstract: abstractHtml_(s), accept: portalUrl_('review?token=' + rv.token + '&a=accept'), decline: portalUrl_('review?token=' + rv.token + '&a=decline') }, { journal: s.journal });
+    mailTemplate_('review_invite', email, { name: nameOf_(r), id: s.id, title: s.title, type: s.type, journal: j.name, abstract: abstractHtml_(s), accept: portalUrl_('review?token=' + rv.token + '&a=accept'), decline: portalUrl_('review?token=' + rv.token + '&a=decline'), days: Math.min(Math.max(Number(r.reviewDays) || CFG.REVIEW_DAYS, 7), 60) }, { journal: s.journal });
     return { ok: true };
   });
 }
@@ -985,7 +1026,7 @@ function rev_respond(p) {
   const r = review_(p.token); need_(r.status === 'invited', 'You have already responded to this invitation.');
   const s = sub_(r.subId), j = journalRow_(s.journal), rv = find_('Users', 'id', r.reviewerId);
   const patch = { status: p.accept ? 'accepted' : 'declined', respondedAt: now_() };
-  if (p.accept) patch.due = addDays_(CFG.REVIEW_DAYS);
+  if (p.accept) { const me = find_('Users', 'id', r.reviewerId) || {}; patch.due = addDays_(Math.min(Math.max(Number(me.reviewDays) || CFG.REVIEW_DAYS, 7), 60)); }
   update_('Reviews', 'id', r.id, patch);
   log_(s.id, r.reviewerId, p.accept ? 'review_accepted' : 'review_declined', (p.reason || '') + (p.suggest ? ' Suggested: ' + p.suggest : ''));
   const ed = s.editorId ? find_('Users', 'id', s.editorId) : null;
@@ -1148,7 +1189,9 @@ function prod_registerDoi(p, u) {
   need_(isAdmin_(u), 'Not allowed.');
   const s = sub_(p.id); need_(s.status === 'published', 'Publish the article first.');
   const sub = Object.assign({}, s, { abstract: tryJson_(s.abstract) });
-  const r = zenodoRegister_(sub, journalRow_(s.journal));
+  let r;
+  try { r = zenodoRegister_(sub, journalRow_(s.journal)); }
+  catch (e) { log_(s.id, u.id, 'doi_error', String(e.message || e)); throw new Error('Zenodo did not publish the DOI: ' + String(e.message || e).slice(0, 400)); }
   update_('Submissions', 'id', s.id, { doi: r.doi || s.doi, flags: Object.assign({}, s.flags || {}, { doiRegistered: true, zenodoUrl: r.url }) });
   log_(s.id, u.id, 'doi_registered', (r.doi || s.doi) + ' ' + r.url);
   return { ok: true, doi: r.doi, url: r.url };
@@ -1290,6 +1333,7 @@ const PRIVATE = {
   'mail.send': mail_send, 'mail.stop': mail_stop, 'mail.duplicate': mail_duplicate, 'mail.automations': mail_automations, 'mail.saveAutomation': mail_saveAutomation,
   'msg.list': msg_list, 'msg.update': msg_update, 'set.get': set_get, 'set.save': set_save, 'set.test': set_test,
   'sig.list': sig_list, 'sig.save': sig_save, 'letter.preview': letter_preview, 'letter.create': letter_create, 'letter.list': letter_list, 'letter.file': letter_file,
+  'team.import': team_import, 'rec.submit': rec_submit, 'rec.list': rec_list, 'rec.update': rec_update, 'me.signature': me_signature, 'me.tools': me_tools,
   'cert.get': cert_get, 'cert.reset': cert_reset, 'mail.compose': mail_compose, 'mail.sent': mail_sent,
   'partner.list': partner_list, 'partner.save': partner_save,
   'idx.readiness': idx_readiness, 'idx.tick': idx_tick, 'idx.pack': idx_issnPack, 'idx.stage': idx_issnStage, 'adm.logo': adm_logo,
@@ -1553,30 +1597,34 @@ function team_appoint(p, u) {
   const j = journalRow_(p.journal), email = normEmail_(p.email);
   need_(/@/.test(email), 'Enter an email.');
   return withLock_(() => {
+    const days = [1, 3, 7, 14, 30].indexOf(Number(p.days)) >= 0 ? Number(p.days) : 7;
     let x = find_('Users', 'email', email), setPw = '';
     if (!x) {
       need_(p.given && p.family, 'Enter the person\'s first and last name (they do not have an account yet).');
       const t = token_();
-      x = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + 30 * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
+      x = insert_('Users', { id: uid_('U'), email: email, given: p.given, family: p.family, degrees: p.degrees || '', affiliation: p.affiliation || '', orcid: p.orcid || '', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString(), reviewer: true, roles: {}, status: 'invited', created: now_() });
       setPw = portalUrl_('reset?token=' + t);
     }
     need_(!where_('Appointments', a => a.userId === x.id && a.journal === p.journal && a.role === p.role && ['pending', 'active'].indexOf(a.status) >= 0 && String(a.end) >= p.start).length, 'This person already has this role for an overlapping term.');
     const prof = {}; ['designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'country', 'degrees', 'orcid'].forEach(k => { if (p[k]) prof[k] = p[k]; });
     if (Object.keys(prof).length) update_('Users', 'id', x.id, prof);
-    const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_() });
+    const a = insert_('Appointments', { id: uid_('A'), userId: x.id, journal: p.journal, role: p.role, title: p.title || '', start: p.start, end: p.end, status: 'pending', token: token_(), agreementVersion: AGREEMENT_VERSION, showOnSite: p.showOnSite !== false, order: p.order || '', reminded: '', renewalOf: p.renewalOf || '', createdBy: u.id, created: now_(), expires: new Date(Date.now() + days * 864e5).toISOString(), transfer: !!p.transfer });
     sendAppointment_(a, x, j, setPw);
     return { ok: true, id: a.id };
   });
 }
 function sendAppointment_(a, x, j, setPw) {
-  mailTemplate_('appoint', x.email, { name: x.given, role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf }, { journal: a.journal });
+  const exp = a.expires ? Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy, h:mm a') + ' IST' : '';
+  mailTemplate_('appoint', x.email, { name: x.given, role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
 }
 function team_resend(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
   need_(a.status === 'pending', 'Only unsigned appointments can be resent.');
   const x = find_('Users', 'id', a.userId); let setPw = '';
-  if (!x.passHash) { const t = token_(); update_('Users', 'id', x.id, { resetToken: t, resetExpires: new Date(Date.now() + 30 * 864e5).toISOString() }); setPw = portalUrl_('reset?token=' + t); }
-  sendAppointment_(a, x, journalRow_(a.journal), setPw);
+  const days = [1, 3, 7, 14, 30].indexOf(Number(p.days)) >= 0 ? Number(p.days) : 7;
+  const fresh = update_('Appointments', 'id', a.id, { token: token_(), expires: new Date(Date.now() + days * 864e5).toISOString() });
+  if (!x.passHash) { const t = token_(); update_('Users', 'id', x.id, { resetToken: t, resetExpires: new Date(Date.now() + days * 864e5).toISOString() }); setPw = portalUrl_('reset?token=' + t); }
+  sendAppointment_(fresh, x, journalRow_(a.journal), setPw);
   return { ok: true };
 }
 function team_update(p, u) {
@@ -1625,10 +1673,16 @@ function endAppointment_(a, reason, revoked) {
 }
 
 // ------------------------------------------------------------ agreement (token link, no password needed)
-function appt_(token) { const a = find_('Appointments', 'token', token); need_(a && token, 'This agreement link is invalid.'); return a; }
+function appt_(token) {
+  const a = find_('Appointments', 'token', token); need_(a && token, 'This agreement link is invalid or has been replaced by a newer one. Please use the latest email, or ask the journal office to resend it.');
+  if (a.status === 'pending') need_(!a.expires || new Date(a.expires) > new Date(), 'This link expired on ' + Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy') + '. Please write to the journal office (use the contact form on the website) and they will send you a new one.');
+  return a;
+}
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash } };
+  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+    profile: { degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
   const a = appt_(p.token); need_(a.status === 'pending', a.status === 'active' ? 'You have already signed this agreement.' : 'This appointment is no longer open for signature.');
@@ -1636,6 +1690,18 @@ function agreement_sign(p) {
   const x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   const typed = String(p.name || '').trim().replace(/\s+/g, ' ');
   need_(typed.length >= 3 && typed.toLowerCase().indexOf(String(x.family).toLowerCase()) >= 0, 'Please type your full name, including "' + x.family + '", as your signature.');
+  // Confirm the member's public board details (ISSN India / indexers need them), reviewing preferences and password.
+  const pr = p.profile || {}, prof = {};
+  ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
+  if (p.profile) {
+    need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
+    if (prof.instEmail) need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(prof.instEmail), 'Institutional email is not valid.');
+    if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
+  }
+  Object.assign(prof, reviewPrefs_(p.prefs || {}));
+  if (p.prefs && p.prefs.reviewer !== undefined) prof.reviewer = !!p.prefs.reviewer;
+  if (!x.passHash) { need_(p.password && String(p.password).length >= 8, 'Please choose a password of at least 8 characters for the portal.'); prof.salt = token_().slice(0, 16); prof.passHash = hashPw_(p.password, prof.salt); prof.verified = true; prof.resetToken = ''; }
+  if (Object.keys(prof).length) Object.assign(x, update_('Users', 'id', x.id, prof));
   const signedAt = now_();
   const meta = { ua: String(p.ua || '').slice(0, 300), tz: p.tz || '', lang: p.lang || '' };
   const pdf = pdfFromHtml_(agreementHtml_(a, x, j) + `<div style="margin-top:26px;border-top:1px solid #ccc;padding-top:12px"><p><b>Signed electronically by:</b> ${esc_(typed)} &lt;${esc_(x.email)}&gt;<br><b>Date and time:</b> ${Utilities.formatDate(new Date(signedAt), 'Asia/Kolkata', 'd MMMM yyyy, HH:mm')} IST<br><b>Agreement version:</b> ${AGREEMENT_VERSION} · <b>Reference:</b> ${a.id}<br><b>Client:</b> ${esc_(meta.ua)}</p></div>`, 'Editorial Agreement - ' + x.family + ' - ' + j.code + ' - ' + a.id + '.pdf');
@@ -1683,7 +1749,7 @@ function termsTick() {
 
 // ------------------------------------------------------------ email templates for the team
 Object.assign(TEMPLATES, {
-  appoint: d => [`${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>${btn_(d.link, 'Review and sign the agreement')}${d.setPw ? `<p>An ACRI Journals account has been created for you. <a href="${d.setPw}">Set your password here</a> (the link is valid for 30 days).</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
+  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
   appoint_signed: d => [`Welcome: your appointment as ${d.role} is active`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for signing the Editorial Agreement. Your appointment as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> is now active, from ${d.start} to ${d.end}.</p><p>A signed copy of the agreement is attached. Your editorial tools are available in the portal.</p>${btn_(d.link, 'Open the editorial portal')}<p>Welcome to the team.</p>`],
   appoint_declined: d => [`Appointment declined: ${d.who} (${d.role})`, `<p>${esc_(d.who)} has declined the appointment as ${esc_(d.role)} of ${esc_(d.journal)}.</p>${d.reason ? quote_(d.reason) : ''}`],
   term_reminder: d => [`Your term as ${d.role} ends on ${d.end}`, `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> ends on <b>${d.end}</b> (${d.days} days from now).</p>${d.renewed ? '<p>A renewal has already been arranged. Please make sure you have signed the new agreement.</p>' : '<p>If you would like to continue, please reply to this email. The editorial office can send you a renewal. Otherwise, please hand over any manuscripts you are handling before your term ends.</p>'}<p>Thank you for your service to the journal.</p>`],
@@ -2702,7 +2768,7 @@ function sig_save(p, u) {
 function letterheadHtml_(opt) {
   const P = pubDetails_(), j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
   const logo = j ? imgFromUrl_(siteUrl_() + '/assets/journals/' + j.slug + '/logo.png') : '';
-  const sg = opt.signatory === 'none' ? null : signatory_(opt.signatory), sig = sg ? imgFromFile_(sg.fileId) : '';
+  const sg = opt.sigObj || (opt.signatory === 'none' ? null : signatory_(opt.signatory)), sig = sg ? imgFromFile_(sg.fileId) : '';
   const brand = '<span style="font-family:Georgia,\'Times New Roman\',serif;font-weight:bold;font-size:25px;color:#0B2545;letter-spacing:.5px">ACRI</span><span style="display:inline-block;width:2px;height:20px;background:#1F7A4D;margin:0 10px;vertical-align:-3px"></span><span style="font-family:Arial,sans-serif;font-weight:bold;font-size:10.5px;letter-spacing:4px;color:#0B2545">JOURNALS</span>';
   const left = j
     ? (logo ? '<img src="' + logo + '" style="height:58px;vertical-align:middle;margin-right:12px">' : '') + '<span style="display:inline-block;vertical-align:middle"><span style="font-family:Georgia,serif;font-weight:bold;font-size:17px;color:' + accent + '">' + esc_(j.name) + '</span><br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">' + esc_(j.code) + (j.issnOnline ? ' · e-ISSN ' + esc_(j.issnOnline) : '') + ' · AN ACRI JOURNALS PUBLICATION</span></span>'
@@ -2712,7 +2778,8 @@ function letterheadHtml_(opt) {
     '<div style="border-top:1px solid #9AA3AE;width:220px;padding-top:6px;font-family:Arial,sans-serif;font-size:11.5px;line-height:1.45"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '';
   return '<html><head><style>@page{size:A4;margin:16mm 18mm 16mm 18mm}body{font-family:Georgia,\'Times New Roman\',serif;font-size:12.5px;line-height:1.62;color:#15191E}p{margin:0 0 10px}ul,ol{margin:0 0 10px 18px;padding:0}a{color:' + accent + '}</style></head><body>' +
     '<table width="100%" cellspacing="0" cellpadding="0"><tr><td style="vertical-align:middle">' + left + '</td><td style="vertical-align:top;width:42%">' + right + '</td></tr></table>' +
-    '<div style="height:3px;background:' + accent + ';margin:12px 0 0"></div><div style="height:1px;background:#1F7A4D;margin:2px 0 18px"></div>' +
+    '<div style="height:3px;background:' + accent + ';margin:12px 0 0"></div><div style="height:1px;background:#1F7A4D;margin:2px 0 ' + (opt.fromDesk ? '8px' : '18px') + '"></div>' +
+    (opt.fromDesk ? '<div style="font-family:Arial,sans-serif;font-size:10.5px;color:' + accent + ';letter-spacing:.5px;margin:0 0 16px">FROM THE DESK OF <b>' + esc_(String(opt.fromDesk.name).toUpperCase()) + '</b> · ' + esc_(opt.fromDesk.designation) + '</div>' : '') +
     '<table width="100%" cellspacing="0" cellpadding="0" style="font-family:Arial,sans-serif;font-size:11px;color:#2F3742"><tr><td>' + (opt.ref ? 'Ref. No.: <b>' + esc_(opt.ref) + '</b>' : '') + '</td><td style="text-align:right">Date: <b>' + esc_(longDate_(opt.date)) + '</b></td></tr></table>' +
     (opt.kind === 'notice' ? '<div style="text-align:center;margin:22px 0 6px;font-family:Arial,sans-serif;font-weight:bold;letter-spacing:5px;font-size:15px;color:' + accent + '">NOTICE</div>' : '') +
     (opt.to ? '<div style="margin-top:18px;white-space:pre-line">' + esc_(opt.to) + '</div>' : '') +
@@ -2730,27 +2797,34 @@ function htmlToPdf_(html, name, folder) {
 function letterBody_(t) { return md_(t || '').replace(/margin:0 0 16px/g, 'margin:0 0 10px'); }
 
 // ------------------------------------------------------------ letters & notices
+/** Admins write on any letterhead and choose a signatory. Board members write on their own journal's
+ *  letterhead, as themselves ("From the desk of …"), signed with their own signature. */
+function letterCtx_(p, u) {
+  const l = p.letter || {}, admin = isAdmin_(u);
+  if (!admin) need_(l.journal && isBoard_(u, l.journal), 'Choose one of your journals.');
+  const asMe = !admin || l.signatory === 'me';
+  if (asMe) need_(l.journal, 'Choose the journal whose letterhead you are writing on.');
+  const me = asMe ? selfSignatory_(find_('Users', 'id', u.id), l.journal) : null;
+  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind } };
+}
 function letter_preview(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  const l = p.letter || {};
-  return { ok: true, html: letterheadHtml_({ journal: l.journal, ref: l.ref || '(reference number on saving)', date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, kind: l.kind }) };
+  const c = letterCtx_(p, u);
+  return { ok: true, html: letterheadHtml_(Object.assign(c.opt, { ref: c.l.ref || '(reference number on saving)' })) };
 }
 function letter_create(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  const l = p.letter || {}; need_(l.body && String(l.body).trim().length > 3, 'Write the letter.');
+  const c = letterCtx_(p, u), l = c.l; need_(l.body && String(l.body).trim().length > 3, 'Write the letter.');
   const kind = l.kind === 'notice' ? 'notice' : (l.kind === 'certificate' ? 'certificate' : 'letter');
   const ref = nextRef_({ letter: 'LTR', notice: 'NOT', certificate: 'CRT' }[kind]);
-  const html = letterheadHtml_({ journal: l.journal, ref: ref, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, kind: kind });
-  const pdf = htmlToPdf_(html, ref.replace(/\//g, '-') + ' ' + String(l.subject || kind).replace(/[^\w\- ]+/g, '').slice(0, 60) + '.pdf');
-  insert_('Letters', { id: uid_('L'), ref: ref, type: kind, journal: l.journal || '', to: l.to || '', subject: l.subject || '', body: l.body, signatory: l.signatory || '', date: l.date || today_(), fileId: pdf.id, createdBy: u.email, created: now_() });
+  const pdf = htmlToPdf_(letterheadHtml_(Object.assign(c.opt, { ref: ref, kind: kind })), ref.replace(/\//g, '-') + ' ' + String(l.subject || kind).replace(/[^\w\- ]+/g, '').slice(0, 60) + '.pdf');
+  insert_('Letters', { id: uid_('L'), ref: ref, type: kind, journal: l.journal || '', to: l.to || '', subject: l.subject || '', body: l.body, signatory: c.opt.sigObj ? 'self:' + u.email : (l.signatory || ''), date: l.date || today_(), fileId: pdf.id, createdBy: u.email, created: now_() });
   return { ok: true, ref: ref, fileId: pdf.id, name: pdf.name, data: pdf.b64 };
 }
 function letter_list(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  return { ok: true, items: all_('Letters').map(x => { delete x._row; return x; }).reverse().slice(0, 300) };
+  need_(isAdmin_(u) || myJournals_(u).length, 'Not allowed.');
+  return { ok: true, items: all_('Letters').filter(x => isAdmin_(u) || x.createdBy === u.email).map(x => { delete x._row; return x; }).reverse().slice(0, 300) };
 }
 function letter_file(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
+  if (!isAdmin_(u)) need_(all_('Letters').some(x => x.fileId === p.fileId && x.createdBy === u.email), 'Not allowed.');
   const f = DriveApp.getFileById(p.fileId), b = f.getBlob();
   return { ok: true, name: f.getName(), mime: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) };
 }
@@ -2849,4 +2923,94 @@ function mail_compose(p, u) {
   return { ok: last.status !== 'error', error: last.status === 'error' ? last.detail : '', message: last.status === 'error' ? 'Not sent: ' + last.detail : 'Sent to ' + to.join(', ') + (att.length ? ' with ' + att.length + ' attachment' + (att.length > 1 ? 's' : '') : '') + '.' };
 }
 function mail_sent(p, u) { need_(isAdmin_(u), 'Admins only.'); return { ok: true, items: all_('SentMail').map(x => { delete x._row; return x; }).reverse().slice(0, 200) }; }
+
+// ======================================================================
+// 18_Board.gs
+// ======================================================================
+/** Editorial board tools: importing an existing board, reviewing preferences, recommendations
+ *  and personal letterheads for board members. */
+
+/** Reviewing preferences a person sets for themselves (profile or agreement page). */
+function reviewPrefs_(p) {
+  const out = {};
+  if (p.reviewDays !== undefined && p.reviewDays !== '') out.reviewDays = Math.min(Math.max(Number(p.reviewDays) || 21, 7), 60);
+  if (p.reviewMax !== undefined && p.reviewMax !== '') out.reviewMax = Math.min(Math.max(Number(p.reviewMax) || 1, 0), 10);
+  if (p.reviewPauseUntil !== undefined) out.reviewPauseUntil = /^\d{4}-\d{2}-\d{2}$/.test(String(p.reviewPauseUntil)) ? p.reviewPauseUntil : '';
+  if (p.reviewNote !== undefined) out.reviewNote = String(p.reviewNote).slice(0, 200);
+  return out;
+}
+
+/** Bring an existing board across: one row per member (CSV with a header row).
+ *  Columns: role, title, given, family, email, degrees, designation, department, affiliation, instAddress, instEmail, profileUrl, country, orcid, start, end
+ *  role = eic | senior | editor | board. Each person gets a personal link (valid p.days) to confirm details and sign. */
+function team_import(p, u) {
+  const rows = parseCsv_(p.csv || ''); need_(rows.length, 'Paste the members, with the header row first.');
+  const out = [];
+  rows.forEach((r, i) => {
+    try {
+      const role = String(r.role || 'board').toLowerCase().trim().replace(/editor-in-chief|chief editor/, 'eic').replace(/senior editor/, 'senior').replace(/^(editorial )?board( member)?$/, 'board');
+      const res = team_appoint(Object.assign({}, r, { journal: p.journal, role: role, email: r.email, start: r.start || today_(), end: r.end || addDays_(730), days: p.days, transfer: true, showOnSite: true }), u);
+      out.push({ row: i + 2, email: r.email, ok: true, id: res.id });
+    } catch (e) { out.push({ row: i + 2, email: r.email || '', ok: false, error: String(e.message || e) }); }
+  });
+  return { ok: true, results: out, sent: out.filter(x => x.ok).length };
+}
+
+// ------------------------------------------------------------ recommendations (board → office)
+const REC_KINDS = { author: 'Author to invite to submit', reviewer: 'Reviewer', board: 'Editorial board member', article: 'Paper or topic to publish' };
+function myJournals_(u) { return all_('Journals').map(j => j.slug).filter(s => isBoard_(u, s)); }
+function rec_submit(p, u) {
+  need_(isAdmin_(u) || myJournals_(u).length, 'Recommendations are for editorial board members.');
+  need_(REC_KINDS[p.kind], 'Choose what you are recommending.');
+  need_(p.journal && (isAdmin_(u) || isBoard_(u, p.journal)), 'Choose one of your journals.');
+  need_(String(p.name || '').trim(), 'Add a name (person or paper title).');
+  if (p.email) need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(p.email), 'Email is not valid.');
+  insert_('Recommendations', { id: uid_('R'), journal: p.journal, kind: p.kind, name: String(p.name).trim().slice(0, 200), email: normEmail_(p.email || ''), affiliation: String(p.affiliation || '').slice(0, 200), url: String(p.url || '').slice(0, 300), note: String(p.note || '').slice(0, 2000), by: u.id, byName: nameOf_(u), status: 'new', created: now_(), updated: now_() });
+  return { ok: true, message: 'Thank you. Your recommendation has been passed to the editorial office.' };
+}
+function rec_list(p, u) {
+  const mine = !(isAdmin_(u) || anyEic_(u));
+  const items = all_('Recommendations').filter(r => isAdmin_(u) || isEic_(u, r.journal) || r.by === u.id).filter(r => !p.mine || r.by === u.id);
+  return { ok: true, kinds: REC_KINDS, canManage: !mine, items: items.map(r => { delete r._row; return r; }).reverse() };
+}
+/** op: status | invite (email the recommended person from the journal office, naming the board member) */
+function rec_update(p, u) {
+  const r = find_('Recommendations', 'id', p.id); need_(r && (isAdmin_(u) || isEic_(u, r.journal)), 'Not allowed.');
+  if (p.op === 'invite') {
+    need_(r.email, 'There is no email address for this person.');
+    const j = journalRow_(r.journal), rec = find_('Users', 'id', r.by) || {};
+    const what = r.kind === 'reviewer' ? 'to join our pool of peer reviewers' : r.kind === 'board' ? 'to consider joining our editorial board' : 'to submit your work';
+    const body = `<p>Dear ${esc_(r.name)},</p><p>On the recommendation of <b>${esc_(nameOf_(rec))}</b>, a member of the editorial board of <b>${esc_(j.name)}</b>, we would like to invite you ${what}.</p>${p.message ? '<p style="white-space:pre-line">' + esc_(p.message) + '</p>' : ''}<p>${esc_(j.name)} is an open-access, peer-reviewed journal published by ${esc_(siteConfig_().publisherName || CFG.LEGAL_ENTITY)}. You can read about its scope and policies here:</p>` +
+      btn_(siteUrl_() + '/journals/' + j.slug + '/about/', 'About the journal', j.accent) + (r.kind === 'author' || r.kind === 'article' ? '<p><a href="' + portalUrl_('submit?journal=' + j.slug) + '">Submit a manuscript</a></p>' : '') + '<p>With best regards,<br>Editorial Office, ' + esc_(j.name) + '</p>';
+    sendMail_(r.email, 'Invitation from ' + j.name, emailShell_(j.accent, j.name, body), { from: j.noReplyEmail, fromName: j.code + ' Editorial Office', replyTo: j.officeEmail });
+    update_('Recommendations', 'id', r.id, { status: 'contacted', updated: now_(), handledBy: u.email });
+    return { ok: true, message: 'Invitation sent to ' + r.email + '.' };
+  }
+  need_(['new', 'contacted', 'accepted', 'declined', 'done'].indexOf(p.status) >= 0, 'Unknown status.');
+  update_('Recommendations', 'id', r.id, { status: p.status, updated: now_(), handledBy: u.email });
+  return { ok: true };
+}
+
+// ------------------------------------------------------------ personal signature (for named letterheads)
+function me_signature(p, u) {
+  need_(isAdmin_(u) || myJournals_(u).length, 'Only editorial board members can add a signature.');
+  if (!p.image) { update_('Users', 'id', u.id, { signatureFileId: '' }); return { ok: true }; }
+  need_(/png|jpe?g/i.test(p.mime || ''), 'Upload a PNG (transparent background is best) or JPG.');
+  const id = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.image), p.mime, 'signature-' + u.id + '.' + (/png/i.test(p.mime) ? 'png' : 'jpg'))).getId();
+  update_('Users', 'id', u.id, { signatureFileId: id });
+  return { ok: true };
+}
+/** The board member as a signatory, with their highest current role on that journal. */
+function selfSignatory_(u, journal) {
+  const order = { eic: 1, senior: 2, editor: 3, board: 4 };
+  const ap = activeAppointments_(journal).filter(a => a.userId === u.id).sort((a, b) => order[a.role] - order[b.role])[0];
+  const j = journalRow_(journal);
+  return { id: 'me', name: nameOf_(u) + (u.degrees ? ', ' + u.degrees : ''), designation: (ap ? roleLabel_(ap) : 'Editorial Board') + ', ' + j.code, org: [u.designation, u.affiliation].filter(String).join(', '), fileId: u.signatureFileId || '' };
+}
+function me_tools(p, u) {
+  const js = isAdmin_(u) ? all_('Journals').map(j => j.slug) : myJournals_(u);
+  need_(js.length, 'Editor tools are for editorial board members.');
+  const me = find_('Users', 'id', u.id);
+  return { ok: true, journals: js.map(s => { const j = journalRow_(s); return { slug: s, code: j.code, name: j.name }; }), hasSignature: !!me.signatureFileId, signature: me.signatureFileId ? imgFromFile_(me.signatureFileId) : '' };
+}
 

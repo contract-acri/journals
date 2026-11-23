@@ -99,42 +99,76 @@ function zenodoReserve_(sub, j) {
   const d = zen_('post', '/deposit/depositions', { metadata: zenodoMeta_(sub, j, true) });
   return { id: String(d.id), doi: d.metadata.prereserve_doi.doi };
 }
+/** Full Zenodo metadata. Uses the published article (article.json in GitHub) when available, so the
+ *  record carries everything the website shows: abstract, keywords, references, journal details, links. */
 function zenodoMeta_(sub, j, minimal) {
-  const authors = sub.authors || [], affs = sub.affiliations || [];
+  let a = null;
+  if (!minimal) { try { a = articleJson_(sub.journal, sub.id); } catch (e) { } }
+  const src = a || sub, affs = src.affiliations || [];
+  const affName = (ids) => (ids || []).map(id => (affs.find(f => String(f.id) === String(id)) || {}).name).filter(String)[0];
   const m = {
-    upload_type: 'publication', publication_type: 'article', prereserve_doi: true,
-    title: sub.title + (sub.subtitle ? ': ' + sub.subtitle : ''),
-    creators: authors.map(a => {
-      const c = { name: a.family + ', ' + a.given };
-      const af = (a.affiliations || []).map(id => (affs.find(f => f.id === id) || {}).name).filter(String)[0];
-      if (af) c.affiliation = af; if (a.orcid) c.orcid = a.orcid; return c;
-    }),
-    description: abstractHtml_(sub) || sub.title,
-    access_right: 'open', license: 'cc-by-4.0',
-    keywords: sub.keywords || [],
-    journal_title: j.name, journal_volume: String(sub.volume || ''), journal_issue: String(sub.issue || ''),
+    upload_type: 'publication', publication_type: 'article',
+    title: String(src.title || '').replace(/<[^>]+>/g, '') + (src.subtitle ? ': ' + src.subtitle : ''),
+    creators: (src.authors || []).map(x => { const c = { name: x.family + ', ' + x.given }; const af = affName(x.affiliations); if (af) c.affiliation = af; if (x.orcid) c.orcid = String(x.orcid).replace(/^https?:\/\/orcid.org\//, ''); return c; }),
+    description: abstractHtml_({ abstract: src.abstract }) || String(src.title || ''),
+    access_right: 'open', license: 'cc-by-4.0', language: 'eng',
+    keywords: (src.keywords || []).filter(String),
+    publication_date: String(src.published || sub.published || today_()).slice(0, 10),
+    journal_title: j.name, journal_volume: String(src.volume || ''), journal_issue: String(src.issue || ''),
   };
-  if (!minimal) {
-    m.publication_date = sub.published || today_();
-    m.related_identifiers = [{ identifier: articleUrl_(sub), relation: 'isIdenticalTo', resource_type: 'publication-article', scheme: 'url' }];
-    m.journal_pages = sub.elocator || ('e' + sub.id.split('-').slice(1).join(''));
-    m.notes = 'Published in ' + j.name + ' by ' + CFG.PUBLISHER + '.';
-    const comm = prop_('ZENODO_COMMUNITY', '');
-    if (comm) m.communities = [{ identifier: comm }];
-  }
+  if (minimal) { m.prereserve_doi = true; return m; }
+  const url = articleUrl_(sub), jurl = siteUrl_() + '/journals/' + j.slug + '/';
+  m.journal_pages = src.firstPage ? src.firstPage + (src.lastPage ? '-' + src.lastPage : '') : (src.elocator || ('e' + String(sub.id).split('-').slice(1).join('')));
+  m.related_identifiers = [
+    { identifier: url, relation: 'isIdenticalTo', resource_type: 'publication-article', scheme: 'url' },
+    { identifier: jurl, relation: 'isPartOf', scheme: 'url' },
+  ];
+  if (j.issnOnline || j.issn) m.related_identifiers.push({ identifier: j.issnOnline || j.issn, relation: 'isPartOf', scheme: 'issn' });
+  if (a && a.previousDoi) m.related_identifiers.push({ identifier: a.previousDoi, relation: 'isIdenticalTo', scheme: 'doi' });
+  const refs = ((a && a.references) || []).map(r => String(r.text || r).replace(/<[^>]+>/g, '').trim()).filter(String);
+  if (refs.length) m.references = refs;
+  const info = (a && a.info) || {};
+  m.notes = (src.type || 'Article') + ' published in ' + j.name + (j.issnOnline ? ' (e-ISSN ' + j.issnOnline + ')' : '') + ' by ' + (siteConfig_().publisherName || CFG.LEGAL_ENTITY) + '. Version of record: ' + url +
+    (info.funding ? ' Funding: ' + info.funding : '') + (info.conflicts ? ' Conflicts of interest: ' + info.conflicts : '');
+  const comm = prop_('ZENODO_COMMUNITY', '');
+  if (comm) m.communities = [{ identifier: comm }];
   return m;
 }
-/** Upload the published PDF from the live site and publish the deposition (registers the DOI with DataCite). */
+/** The article PDF: the live site first, then the copy stored in GitHub (typeset or uploaded). */
+function articlePdfBytes_(journal, id) {
+  const live = UrlFetchApp.fetch(siteUrl_() + '/journals/' + journal + '/articlepdf/' + String(id).toLowerCase() + '.pdf', { muteHttpExceptions: true });
+  if (live.getResponseCode() === 200 && /pdf/i.test(live.getHeaders()['Content-Type'] || live.getHeaders()['content-type'] || 'pdf')) return live.getContent();
+  const own = ghBytes_('content/articles/' + journal + '/' + id + '/article.pdf'); if (own) return own;
+  const dir = gh_('get', '/contents/content/typeset?ref=' + prop_('GITHUB_BRANCH', 'main')) || [];
+  const f = dir.filter(x => x.name.indexOf(id + '-') === 0).pop();
+  return f ? ghBytes_('content/typeset/' + f.name) : null;
+}
+function ghBytes_(path) {
+  const r = gh_('get', '/contents/' + encodeURI(path) + '?ref=' + prop_('GITHUB_BRANCH', 'main'));
+  if (!r) return null;
+  if (r.content) return Utilities.base64Decode(r.content.replace(/\n/g, ''));
+  if (r.download_url) return UrlFetchApp.fetch(r.download_url, { headers: { Authorization: 'Bearer ' + prop_('GITHUB_TOKEN') } }).getContent();
+  return null;
+}
+/** Upload the PDF, send the full metadata and publish the deposition (registers the DOI with DataCite). */
 function zenodoRegister_(sub, j) {
   need_(sub.zenodoId, 'No Zenodo deposition for this article. Reserve a DOI first.');
-  const pdfUrl = siteUrl_() + '/journals/' + sub.journal + '/articlepdf/' + sub.id.toLowerCase() + '.pdf';
-  const pdf = UrlFetchApp.fetch(pdfUrl, { muteHttpExceptions: true });
-  need_(pdf.getResponseCode() === 200, 'The PDF is not live yet (' + pdfUrl + '). Wait for the site build to finish and try again.');
   let dep = zen_('get', '/deposit/depositions/' + sub.zenodoId);
-  if (dep.submitted) return { doi: dep.doi, url: dep.links.record_html || dep.links.html };
-  (dep.files || []).forEach(f => zen_('delete', '/deposit/depositions/' + sub.zenodoId + '/files/' + f.id));
-  zen_('put', dep.links.bucket + '/' + sub.id + '.pdf', null, pdf.getContent());
-  zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: zenodoMeta_(sub, j, false) });
+  if (dep.submitted && dep.state === 'done') return { doi: dep.doi, url: dep.links.record_html || dep.links.html };
+  if (dep.submitted) { try { dep = zen_('post', '/deposit/depositions/' + sub.zenodoId + '/actions/edit'); } catch (e) { } }
+  const pdf = articlePdfBytes_(sub.journal, sub.id);
+  need_(pdf, 'The article PDF could not be found (not on the website and not in GitHub). Wait for the website build to finish, then try again.');
+  if (!dep.submitted) {
+    (dep.files || []).forEach(f => zen_('delete', '/deposit/depositions/' + sub.zenodoId + '/files/' + f.id));
+    zen_('put', dep.links.bucket + '/' + sub.id + '.pdf', null, pdf);
+  }
+  const meta = zenodoMeta_(sub, j, false);
+  try { zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: meta }); }
+  catch (e) { // Retry without optional fields Zenodo may reject, keeping everything required.
+    ['references', 'communities', 'notes', 'language'].forEach(k => delete meta[k]);
+    meta.related_identifiers = meta.related_identifiers.filter(r => r.scheme === 'url');
+    zen_('put', '/deposit/depositions/' + sub.zenodoId, { metadata: meta });
+  }
   dep = zen_('post', '/deposit/depositions/' + sub.zenodoId + '/actions/publish');
   return { doi: dep.doi, url: (dep.links && (dep.links.record_html || dep.links.html)) || '' };
 }

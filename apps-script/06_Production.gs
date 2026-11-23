@@ -101,7 +101,9 @@ function prod_registerDoi(p, u) {
   need_(isAdmin_(u), 'Not allowed.');
   const s = sub_(p.id); need_(s.status === 'published', 'Publish the article first.');
   const sub = Object.assign({}, s, { abstract: tryJson_(s.abstract) });
-  const r = zenodoRegister_(sub, journalRow_(s.journal));
+  let r;
+  try { r = zenodoRegister_(sub, journalRow_(s.journal)); }
+  catch (e) { log_(s.id, u.id, 'doi_error', String(e.message || e)); throw new Error('Zenodo did not publish the DOI: ' + String(e.message || e).slice(0, 400)); }
   update_('Submissions', 'id', s.id, { doi: r.doi || s.doi, flags: Object.assign({}, s.flags || {}, { doiRegistered: true, zenodoUrl: r.url }) });
   log_(s.id, u.id, 'doi_registered', (r.doi || s.doi) + ' ' + r.url);
   return { ok: true, doi: r.doi, url: r.url };

@@ -251,3 +251,14 @@ Website details are written to `config/site.json` in GitHub, which rebuilds the 
 - **Write an email:** to anyone, from the journal office, editors or system address, with files and letters from the register attached, signed by a signatory.
 - **Certificates of publication:** made automatically for every author when an article is published, attached to the "published" email, downloadable by authors in the portal and by admins for any article (including back issues).
 Run `setup()` after updating so the Signatories, Letters, Certificates and SentMail sheets are created.
+
+## Moving an existing editorial board across (Admin → Editorial team)
+
+Paste the members as CSV (header row first) under "Bring across your existing editorial board" and choose how long the links stay valid (24 hours to 14 days).
+Each member gets a personal link to confirm their board-page details, set reviewing preferences (days per review, reviews at a time), choose a portal password and sign the agreement.
+Expired links show a clear message; use Resend to issue a new link with a fresh validity period.
+
+## Board members (Editor tools)
+
+Board members get "Editor tools": letters on their journal's letterhead ("From the desk of …", signed with their own signature), their letters register, recommendations of authors / reviewers / board members / papers (reviewed by the office in Editorial team → Recommendations), and their signature.
+Reviewing preferences are respected when editors invite reviewers (pause dates and maximum reviews at a time), and each reviewer's due date follows the days they chose.

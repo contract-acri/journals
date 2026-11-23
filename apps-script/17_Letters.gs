@@ -54,7 +54,7 @@ function sig_save(p, u) {
 function letterheadHtml_(opt) {
   const P = pubDetails_(), j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
   const logo = j ? imgFromUrl_(siteUrl_() + '/assets/journals/' + j.slug + '/logo.png') : '';
-  const sg = opt.signatory === 'none' ? null : signatory_(opt.signatory), sig = sg ? imgFromFile_(sg.fileId) : '';
+  const sg = opt.sigObj || (opt.signatory === 'none' ? null : signatory_(opt.signatory)), sig = sg ? imgFromFile_(sg.fileId) : '';
   const brand = '<span style="font-family:Georgia,\'Times New Roman\',serif;font-weight:bold;font-size:25px;color:#0B2545;letter-spacing:.5px">ACRI</span><span style="display:inline-block;width:2px;height:20px;background:#1F7A4D;margin:0 10px;vertical-align:-3px"></span><span style="font-family:Arial,sans-serif;font-weight:bold;font-size:10.5px;letter-spacing:4px;color:#0B2545">JOURNALS</span>';
   const left = j
     ? (logo ? '<img src="' + logo + '" style="height:58px;vertical-align:middle;margin-right:12px">' : '') + '<span style="display:inline-block;vertical-align:middle"><span style="font-family:Georgia,serif;font-weight:bold;font-size:17px;color:' + accent + '">' + esc_(j.name) + '</span><br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">' + esc_(j.code) + (j.issnOnline ? ' · e-ISSN ' + esc_(j.issnOnline) : '') + ' · AN ACRI JOURNALS PUBLICATION</span></span>'
@@ -64,7 +64,8 @@ function letterheadHtml_(opt) {
     '<div style="border-top:1px solid #9AA3AE;width:220px;padding-top:6px;font-family:Arial,sans-serif;font-size:11.5px;line-height:1.45"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '';
   return '<html><head><style>@page{size:A4;margin:16mm 18mm 16mm 18mm}body{font-family:Georgia,\'Times New Roman\',serif;font-size:12.5px;line-height:1.62;color:#15191E}p{margin:0 0 10px}ul,ol{margin:0 0 10px 18px;padding:0}a{color:' + accent + '}</style></head><body>' +
     '<table width="100%" cellspacing="0" cellpadding="0"><tr><td style="vertical-align:middle">' + left + '</td><td style="vertical-align:top;width:42%">' + right + '</td></tr></table>' +
-    '<div style="height:3px;background:' + accent + ';margin:12px 0 0"></div><div style="height:1px;background:#1F7A4D;margin:2px 0 18px"></div>' +
+    '<div style="height:3px;background:' + accent + ';margin:12px 0 0"></div><div style="height:1px;background:#1F7A4D;margin:2px 0 ' + (opt.fromDesk ? '8px' : '18px') + '"></div>' +
+    (opt.fromDesk ? '<div style="font-family:Arial,sans-serif;font-size:10.5px;color:' + accent + ';letter-spacing:.5px;margin:0 0 16px">FROM THE DESK OF <b>' + esc_(String(opt.fromDesk.name).toUpperCase()) + '</b> · ' + esc_(opt.fromDesk.designation) + '</div>' : '') +
     '<table width="100%" cellspacing="0" cellpadding="0" style="font-family:Arial,sans-serif;font-size:11px;color:#2F3742"><tr><td>' + (opt.ref ? 'Ref. No.: <b>' + esc_(opt.ref) + '</b>' : '') + '</td><td style="text-align:right">Date: <b>' + esc_(longDate_(opt.date)) + '</b></td></tr></table>' +
     (opt.kind === 'notice' ? '<div style="text-align:center;margin:22px 0 6px;font-family:Arial,sans-serif;font-weight:bold;letter-spacing:5px;font-size:15px;color:' + accent + '">NOTICE</div>' : '') +
     (opt.to ? '<div style="margin-top:18px;white-space:pre-line">' + esc_(opt.to) + '</div>' : '') +
@@ -82,27 +83,34 @@ function htmlToPdf_(html, name, folder) {
 function letterBody_(t) { return md_(t || '').replace(/margin:0 0 16px/g, 'margin:0 0 10px'); }
 
 // ------------------------------------------------------------ letters & notices
+/** Admins write on any letterhead and choose a signatory. Board members write on their own journal's
+ *  letterhead, as themselves ("From the desk of …"), signed with their own signature. */
+function letterCtx_(p, u) {
+  const l = p.letter || {}, admin = isAdmin_(u);
+  if (!admin) need_(l.journal && isBoard_(u, l.journal), 'Choose one of your journals.');
+  const asMe = !admin || l.signatory === 'me';
+  if (asMe) need_(l.journal, 'Choose the journal whose letterhead you are writing on.');
+  const me = asMe ? selfSignatory_(find_('Users', 'id', u.id), l.journal) : null;
+  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind } };
+}
 function letter_preview(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  const l = p.letter || {};
-  return { ok: true, html: letterheadHtml_({ journal: l.journal, ref: l.ref || '(reference number on saving)', date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, kind: l.kind }) };
+  const c = letterCtx_(p, u);
+  return { ok: true, html: letterheadHtml_(Object.assign(c.opt, { ref: c.l.ref || '(reference number on saving)' })) };
 }
 function letter_create(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  const l = p.letter || {}; need_(l.body && String(l.body).trim().length > 3, 'Write the letter.');
+  const c = letterCtx_(p, u), l = c.l; need_(l.body && String(l.body).trim().length > 3, 'Write the letter.');
   const kind = l.kind === 'notice' ? 'notice' : (l.kind === 'certificate' ? 'certificate' : 'letter');
   const ref = nextRef_({ letter: 'LTR', notice: 'NOT', certificate: 'CRT' }[kind]);
-  const html = letterheadHtml_({ journal: l.journal, ref: ref, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, kind: kind });
-  const pdf = htmlToPdf_(html, ref.replace(/\//g, '-') + ' ' + String(l.subject || kind).replace(/[^\w\- ]+/g, '').slice(0, 60) + '.pdf');
-  insert_('Letters', { id: uid_('L'), ref: ref, type: kind, journal: l.journal || '', to: l.to || '', subject: l.subject || '', body: l.body, signatory: l.signatory || '', date: l.date || today_(), fileId: pdf.id, createdBy: u.email, created: now_() });
+  const pdf = htmlToPdf_(letterheadHtml_(Object.assign(c.opt, { ref: ref, kind: kind })), ref.replace(/\//g, '-') + ' ' + String(l.subject || kind).replace(/[^\w\- ]+/g, '').slice(0, 60) + '.pdf');
+  insert_('Letters', { id: uid_('L'), ref: ref, type: kind, journal: l.journal || '', to: l.to || '', subject: l.subject || '', body: l.body, signatory: c.opt.sigObj ? 'self:' + u.email : (l.signatory || ''), date: l.date || today_(), fileId: pdf.id, createdBy: u.email, created: now_() });
   return { ok: true, ref: ref, fileId: pdf.id, name: pdf.name, data: pdf.b64 };
 }
 function letter_list(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
-  return { ok: true, items: all_('Letters').map(x => { delete x._row; return x; }).reverse().slice(0, 300) };
+  need_(isAdmin_(u) || myJournals_(u).length, 'Not allowed.');
+  return { ok: true, items: all_('Letters').filter(x => isAdmin_(u) || x.createdBy === u.email).map(x => { delete x._row; return x; }).reverse().slice(0, 300) };
 }
 function letter_file(p, u) {
-  need_(isAdmin_(u), 'Admins only.');
+  if (!isAdmin_(u)) need_(all_('Letters').some(x => x.fileId === p.fileId && x.createdBy === u.email), 'Not allowed.');
   const f = DriveApp.getFileById(p.fileId), b = f.getBlob();
   return { ok: true, name: f.getName(), mime: b.getContentType(), data: Utilities.base64Encode(b.getBytes()) };
 }
