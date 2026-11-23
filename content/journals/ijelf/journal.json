@@ -1,17 +1,14 @@
 {
   "slug": "ijelf",
   "code": "IJELF",
-  "abbrev": "Int J Educ Learn Futures",
   "name": "International Journal of Education and Learning Futures",
-  "short": "IJELF",
+  "abbrev": "Int J Educ Learn Futures",
   "issn": "",
-  "eissn": "",
-  "accent": "#005028",
-  "accentTint": "#ECF5EF",
+  "accent": "#0e6b5c",
+  "accentTint": "#f1f6f5",
   "school": "ACRI School of Education & Human Development (SEHD)",
   "since": 2026,
-  "frequency": "Biannual",
-  "scope": "IJELF publishes research on the future of education: learning systems, assessment, pedagogy, educational technology, leadership in schools and universities, teacher development and education policy. It welcomes work that connects evidence to practice in India and around the world.",
+  "frequency": "Continuous publication",
   "subjects": [
     "Assessment",
     "Pedagogy",
@@ -31,27 +28,14 @@
     "Editorial"
   ],
   "legacyUrl": "https://ijelf.acriindia.org",
-  "editorialEmail": "controller@journals.acriindia.org",
-  "board": [
-    {
-      "role": "Chairperson",
-      "group": "Publisher & journal management",
-      "name": "Fenil Pritesh Shah",
-      "affiliation": "Ahmedabad Centre for Research and Innovation"
-    }
-  ],
-  "active": true,
   "noReplyEmail": "ijelf-no-reply@journals.acriindia.org",
-  "editorEmail": "editor@journals.acriindia.org",
-  "boardExtra": [
-    {
-      "role": "Chairperson",
-      "group": "Publisher & journal management",
-      "name": "Fenil Pritesh Shah",
-      "affiliation": "Ahmedabad Centre for Research and Innovation"
-    }
-  ],
-  "logoColor": "#005028",
+  "editorEmail": "editor-ijelf@journals.acriindia.org",
+  "short": "IJELF",
+  "eissn": "",
+  "scope": "",
+  "officeEmail": "controller@journals.acriindia.org",
+  "boardExtra": [],
+  "active": true,
   "scopeType": "international",
   "startYear": 2026,
   "languages": [
@@ -60,12 +44,16 @@
   "formats": [
     "Online"
   ],
-  "subjectArea": "Education",
+  "subjectArea": "",
   "issnOnline": "",
   "issnPrint": "",
   "issnStatus": {
     "online": "not_applied",
     "print": "not_applicable"
   },
-  "officeEmail": "controller@journals.acriindia.org"
+  "logoColor": "#0e6b5c",
+  "order": 99,
+  "serialStart": {},
+  "editorialEmail": "controller@journals.acriindia.org",
+  "board": []
 }
