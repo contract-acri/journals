@@ -597,6 +597,30 @@ function journalAuthors(j) {
 }
 
 // Static content pages (network) come from /content/pages/*.html with a front-matter line.
+function onePage() {
+  const mark = (size) => `<span class="onemark" style="font-size:${size}px"><b>ACRI</b><i></i><span>ONE</span></span>`;
+  return layout({ title: 'ACRI One', canonical: BASE + '/one/', desc: 'ACRI One is your single account for ACRI services, starting with ACRI Journals: submit, review and edit across every ACRI journal.', body: `
+<section class="onehero"><div class="wrap">
+  ${mark(34)}
+  <h1>One account for ACRI.</h1>
+  <p>ACRI One is the account you use to sign in to ACRI's services. Today it opens ACRI Journals, where you can submit your research, review manuscripts and work as an editor across every ACRI journal.</p>
+  <div class="onecta"><a class="btn btn-green" href="/portal/#/login">Sign in with ACRI One</a><a class="btn btn-line" href="/portal/#/register">Create an account</a></div>
+</div></section>
+<section class="sec"><div class="wrap">
+  <div class="sec-h"><div><span class="kicker">Available with ACRI One</span><h2>Services</h2></div></div>
+  <div class="onegrid">
+    <a class="onesvc" href="/portal/#/login"><span class="kicker">Live</span><h3>ACRI Journals</h3><p>Submit manuscripts, follow every stage of review, act as a reviewer or editor, and download your certificates of publication. Runs on AES, the ACRI Editorial System.</p><span class="go">Sign in →</span></a>
+    <div class="onesvc soon"><span class="kicker">Planned</span><h3>More ACRI services</h3><p>Other ACRI platforms will join ACRI One over time. Each will be listed here when it is ready to use your account.</p></div>
+  </div>
+</div></section>
+<section class="sec pillars"><div class="wrap"><div class="pgrid onefaq">
+  <div class="pil"><h3>One account, every journal</h3><p>You do not need a separate login for each journal. The same account works for IJBMRS, IJELF, IJSRI and every future ACRI journal.</p></div>
+  <div class="pil"><h3>Your roles follow you</h3><p>Whether you are an author, a reviewer, an editor or all three, you see the right tools after signing in.</p></div>
+  <div class="pil"><h3>Forgot your password?</h3><p>Use <a href="/portal/#/forgot">Reset your password</a>. We email you a link that is valid for one hour.</p></div>
+  <div class="pil"><h3>Keep it safe</h3><p>ACRI will never ask for your password by email or phone. Sign in only at acriindia.org.in or one.acriindia.org.in.</p></div>
+</div></div></section>`, });
+}
+
 function aesErrorsPage() {
   const E = readJSON(path.join(ROOT, 'config/aes-errors.json'), { groups: [] });
   return layout({ title: 'AES error codes', canonical: BASE + '/aes/errors/', desc: 'Error codes of AES, the ACRI Editorial System, with what each one means and how to fix it.', body: `<div class="wrap page narrow"><div class="page-h"><span class="kicker">${esc(E.name)} · ${esc(E.fullName)} · version ${esc(E.version)}</span><h1>Error codes</h1><p>When something goes wrong in the editorial portal, AES shows a short code such as <code>AES-GH-401</code>. Find it below to see what happened and how to fix it. Codes for system faults also come with a reference (for example <code>E261124-7KQ2A</code>), which the journal office can look up in the error log.</p>
@@ -703,6 +727,7 @@ async function main() {
   page('/partners/', partnersPage());
   page('/contact/', contactPage());
   page('/aes/errors/', aesErrorsPage(), false);
+  page('/one/', onePage());
   // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
   const pageFiles = {};
   for (const dir of [path.join(ROOT, 'build', 'pages'), path.join(CONTENT, 'pages')])

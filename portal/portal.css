@@ -125,3 +125,9 @@ textarea.code{min-height:360px}
 .aesfoot{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font:12px var(--sans);color:var(--muted);padding:26px 0 34px;border-top:1px solid var(--line);margin-top:40px}
 .aesfoot a{color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.papp>*,.papp .loading{animation:none}}
+
+/* ACRI One */
+.onebrand{display:inline-flex;align-items:center;gap:9px;margin:0 0 14px;color:var(--navy)}
+.onebrand b{font:700 20px/1 var(--serif);letter-spacing:.01em}
+.onebrand i{width:1.5px;height:16px;background:#1F7A4D}
+.onebrand span{font:700 10.5px/1 var(--sans);letter-spacing:.34em}

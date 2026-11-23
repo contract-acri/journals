@@ -272,3 +272,8 @@ Errors carry codes (AES-AREA-NUMBER) explained at /aes/errors/ (source: config/a
 
 Invite with just an email and role (Editorial team → Appoint, or the CSV import). The person fills in their own name, photo, details, reviewing preferences, signature and password from their personal link.
 Use "Copy link" or "WhatsApp" on a pending appointment to share the link yourself. Photos are published to the board page (content/people/).
+
+## ACRI One (level 1)
+
+ACRI One is the name of the account people use in AES. The page /one/ explains it and links to sign-in.
+one.acriindia.org.in redirects to https://acriindia.org.in/one/ (Cloudflare redirect rule). When real single sign-on is built later, it replaces the redirect at the same address.

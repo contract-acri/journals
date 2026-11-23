@@ -119,12 +119,13 @@
   window.addEventListener('hashchange', route);
 
   // ---------------------------------------------------------------- auth views
-  function authShell(title, lead, inner) { app.innerHTML = `<div class="auth panel"><h1>${title}</h1><p class="lead">${lead}</p><div id="m"></div>${inner}</div>`; }
+  const ONE = '<div class="onebrand" aria-label="ACRI One"><b>ACRI</b><i></i><span>ONE</span></div>';
+  function authShell(title, lead, inner) { const one = /ACRI One/.test(title); app.innerHTML = `<div class="auth panel">${one ? ONE : ''}<h1>${title}</h1><p class="lead">${lead}</p><div id="m"></div>${inner}</div>`; }
   const showMsg = (m, cls = 'err') => { $('#m').innerHTML = `<div class="msg ${cls}">${esc(m)}</div>`; };
 
   function vLogin(q) {
     if (S.token) return go(q.next || '');
-    authShell('Sign in', 'One account for authors, reviewers and editors across all ACRI journals.',
+    authShell('Sign in with ACRI One', 'Your ACRI One account works for authors, reviewers and editors across every ACRI journal.',
       `<form id="f"><div class="f"><label>Email</label><input name="email" type="email" autocomplete="email" required></div>
       <div class="f"><label>Password</label><input name="password" type="password" autocomplete="current-password" required></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center">Sign in</button>
@@ -132,7 +133,7 @@
     $('#f').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const r = await api('auth.login', { email: e.target.email.value, password: e.target.password.value }); setSession(r.token, r.user); go(q.next || ''); }).catch(er => showMsg(er.message)); };
   }
   function vRegister() {
-    authShell('Create your account', 'Use this account to submit manuscripts and to review for ACRI journals.',
+    authShell('Create your ACRI One account', 'One account to submit manuscripts, review and serve as an editor across ACRI journals.',
       `<form id="f"><div class="row2"><div class="f"><label>First name</label><input name="given" required></div><div class="f"><label>Last name</label><input name="family" required></div></div>
       <div class="f"><label>Email</label><input name="email" type="email" required></div>
       <div class="row2"><div class="f"><label>Degrees</label><input name="degrees" placeholder="e.g. PhD, MBA"></div><div class="f"><label>ORCID iD</label><input name="orcid" placeholder="0000-0000-0000-0000"></div></div>
@@ -144,11 +145,11 @@
     $('#f').onsubmit = (e) => { e.preventDefault(); const f = e.target; run(e.submitter, async () => { const r = await api('auth.register', { given: f.given.value, family: f.family.value, email: f.email.value, degrees: f.degrees.value, orcid: f.orcid.value, affiliation: f.affiliation.value, password: f.password.value, reviewer: f.reviewer.checked }); f.outerHTML = ''; showMsg(r.message, 'ok'); }).catch(er => showMsg(er.message)); };
   }
   function vForgot() {
-    authShell('Reset your password', 'We will email you a link to choose a new password.', `<form id="f"><div class="f"><label>Email</label><input name="email" type="email" required></div><button class="btn btn-primary">Send reset link</button></form>`);
+    authShell('Reset your ACRI One password', 'We will email you a link to choose a new password.', `<form id="f"><div class="f"><label>Email</label><input name="email" type="email" required></div><button class="btn btn-primary">Send reset link</button></form>`);
     $('#f').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const r = await api('auth.forgot', { email: e.target.email.value }); showMsg(r.message, 'ok'); }).catch(er => showMsg(er.message)); };
   }
   function vReset(q) {
-    authShell('Choose a new password', '', `<form id="f"><div class="f"><label>New password</label><input name="p" type="password" minlength="8" required></div><button class="btn btn-primary">Save password</button></form>`);
+    authShell('Choose a new ACRI One password', '', `<form id="f"><div class="f"><label>New password</label><input name="p" type="password" minlength="8" required></div><button class="btn btn-primary">Save password</button></form>`);
     $('#f').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const r = await api('auth.reset', { token: q.token, password: e.target.p.value }); showMsg(r.message, 'ok'); setTimeout(() => go('login'), 1500); }).catch(er => showMsg(er.message)); };
   }
   async function vVerify(q) { authShell('Verifying…', '', ''); try { const r = await api('auth.verify', { token: q.token }); authShell('Email verified', '', `<div class="msg ok">${esc(r.message)}</div><a class="btn btn-primary" href="#/login">Sign in</a>`); } catch (e) { showMsg(e.message); } }

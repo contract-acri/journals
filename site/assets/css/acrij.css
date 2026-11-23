@@ -428,3 +428,25 @@ button{font:inherit}
 .person .pph{display:block;width:76px;height:76px;border-radius:50%;object-fit:cover;margin:0 0 12px;border:3px solid #fff;box-shadow:0 0 0 1px var(--line)}
 .person span,.person a{overflow-wrap:anywhere}
 .person .pbio{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--line);font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+
+/* ACRI One */
+.onemark{display:inline-flex;align-items:center;gap:.32em;line-height:1}
+.onemark b{font:700 1em/1 var(--serif);letter-spacing:.01em}
+.onemark i{width:2px;height:.8em;background:#3DBE7E}
+.onemark span{font:700 .34em/1 var(--sans);letter-spacing:.36em}
+.onehero{background:radial-gradient(900px 420px at 80% -10%,rgba(31,122,77,.35),transparent 60%),var(--navy);color:#fff;text-align:center}
+.onehero .wrap{padding-top:78px;padding-bottom:78px;max-width:760px}
+.onehero h1{font:600 48px/1.1 var(--serif);margin:26px 0 14px;letter-spacing:-.01em}
+.onehero p{font-size:18px;line-height:1.6;color:#D3DCE8;margin:0 0 28px}
+.onecta{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.onegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.onesvc{display:block;border:1px solid var(--line);border-radius:14px;padding:24px;background:#fff;color:var(--ink)!important;text-decoration:none!important;transition:box-shadow .2s,transform .2s}
+a.onesvc:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.onesvc .kicker{color:var(--green)}
+.onesvc.soon{background:var(--soft)}
+.onesvc.soon .kicker{color:var(--muted)}
+.onesvc h3{font:600 22px/1.25 var(--serif);margin:8px 0}
+.onesvc p{color:var(--ink-2);font-size:15px;margin:0 0 12px}
+.onesvc .go{font-weight:600;color:var(--navy)}
+.onefaq .pil h3{margin-top:0}
+@media (max-width:560px){.onehero h1{font-size:34px}}
