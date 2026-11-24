@@ -95,6 +95,33 @@
       "website": "",
       "interests": [],
       "message": ""
+    },
+    {
+      "role": "Editorial Board Member",
+      "group": "Editorial Board",
+      "photo": "/assets/people/ua8cc4329d83543e7.jpg?v=mwuanuhp",
+      "bio": "Dr. Santosh Kumar Yadav is an Assistant Professor in the Department of Operations\nand IT at the Faculty of Management, IBS Hyderabad, IFHE, India. He brings over three years of teaching experience as a Lecturer at the Patel Group of Institutions, Indore, and more than two years of experience as an Academic\nAssociate (AA) in the Operations\nManagement and Quantitative Techniques (OM & QT) area at the Indian Institute of Management (IIM) Indore. A science graduate with a postgraduate degree in management, Dr. Santosh Kumar Yadav has actively participated in national and international conferences, presenting his\nresearch both in India and abroad. Recently he has received SAP University Alliances Educational Excellence Membership Award\n2026 on behalf of IFHE Hyderabad at Jakarta. He is a certified ERPsim Level 1 Instructor and GBI S/4 HANA 4.2 and SAP Analytics Cloud trainer and holds lifetime memberships in several professional bodies\nincluding the Society of Operations\nManagement (SOM), the Operational Research Society of\nIndia (ORSI), the Analytics Society of India (ASI), and AIMS International.",
+      "name": "Santosh Kumar Yadav, PhD",
+      "plainName": "Santosh Kumar Yadav",
+      "designation": "Assistant Professor",
+      "department": "Operations and IT",
+      "affiliation": "ICFAI Business School (IBS) Hyderabad",
+      "address": "Department of Operations and IT, ICFAI Business School (IBS), IFHE Campus\nDonthanapally, Shankarapalli Road\nHyderabad - 501203, Telangana, India",
+      "email": "",
+      "profile": "https://ifheindia.org/icfai-business-school-hyderabad/faculty-resources/operations-it",
+      "country": "India",
+      "orcid": "0000-0002-9546-0565",
+      "since": "2026",
+      "slug": "santosh-kumar-yadav",
+      "scholar": "https://scholar.google.com/citations?user=loAGx38AAAAJ&hl=en",
+      "linkedin": "https://www.linkedin.com/in/santosh-kumar-7296aba7/",
+      "website": "",
+      "interests": [
+        "MCDM",
+        "Operations Research",
+        "Operations Management"
+      ],
+      "message": ""
     }
   ]
 }
