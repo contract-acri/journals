@@ -1,17 +1,15 @@
 {
   "slug": "ijbmrs",
   "code": "IJBMRS",
-  "abbrev": "Int J Bus Manag Res Stud",
   "name": "International Journal of Business and Management Research Studies",
-  "short": "IJBMRS",
+  "abbrev": "Int J Bus Manag Res Stud",
   "issn": "3139-115X",
   "eissn": "3139-115X",
-  "accent": "#164470",
-  "accentTint": "#EEF3F8",
+  "accent": "#8E1B32",
+  "accentTint": "#FBF1F3",
   "school": "ACRI School of Business Management & Commerce (SBMC)",
   "since": 2025,
   "frequency": "Bi-monthly",
-  "scope": "IJBMRS publishes rigorous, policy-relevant research across business, management, entrepreneurship, finance, marketing, organisational behaviour, strategy and the Indian and global economy. The journal welcomes empirical, theoretical and review work from scholars, practitioners and early-career researchers.",
   "subjects": [
     "Entrepreneurship",
     "Finance",
@@ -32,44 +30,31 @@
     "Book Review"
   ],
   "legacyUrl": "https://ijbmrs.org",
-  "editorialEmail": "controller@journals.acriindia.org",
-  "board": [
-    {
-      "role": "Chairperson",
-      "group": "Publisher & journal management",
-      "name": "Fenil Pritesh Shah",
-      "affiliation": "Ahmedabad Centre for Research and Innovation"
-    }
-  ],
-  "active": true,
   "serialStart": {
     "2026": 20
   },
   "noReplyEmail": "ijbmrs-no-reply@journals.acriindia.org",
-  "editorEmail": "editor@journals.acriindia.org",
-  "boardExtra": [
-    {
-      "role": "Chairperson",
-      "group": "Publisher & journal management",
-      "name": "Fenil Pritesh Shah",
-      "affiliation": "Ahmedabad Centre for Research and Innovation"
-    }
-  ],
-  "logoColor": "#164470",
-  "scopeType": "international",
-  "startYear": 2025,
-  "languages": [
-    "English"
-  ],
-  "formats": [
-    "Online"
-  ],
-  "subjectArea": "Business, Management and Accounting",
-  "issnOnline": "3139-115X",
-  "issnPrint": "",
-  "issnStatus": {
-    "online": "assigned",
-    "print": "not_applicable"
+  "editorEmail": "editor-ijbmrs@journals.acriindia.org",
+  "readinessManual": {
+    "issn_url_informed": true,
+    "g_console": true
   },
-  "officeEmail": "controller@journals.acriindia.org"
+  "board": [
+    {
+      "role": "Editorial Board Member",
+      "group": "Editorial Board",
+      "photo": "/assets/people/u1ee8f06202d6445c.jpg?v=mwu2uvsh",
+      "bio": "",
+      "name": "Jaimine Vaishnav",
+      "designation": "Associate Professor",
+      "department": "School of Management and Entrepreneurship",
+      "affiliation": "ATLAS SkillTech University",
+      "address": "Equinox Business Park, Ambedkar Nagar, Kurla West, Kurla, Mumbai, Maharashtra 400070.",
+      "email": "jaimine.vaishnav@atlasuniversity.edu.in",
+      "profile": "https://atlasuniversity.edu.in/",
+      "country": "India",
+      "orcid": "0009-0003-9582-3420",
+      "since": "2026"
+    }
+  ]
 }
