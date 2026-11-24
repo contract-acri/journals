@@ -59,7 +59,7 @@ function letterheadHtml_(opt) {
   const left = j
     ? (logo ? '<img src="' + logo + '" style="height:58px;vertical-align:middle;margin-right:12px">' : '') + '<span style="display:inline-block;vertical-align:middle"><span style="font-family:Georgia,serif;font-weight:bold;font-size:17px;color:' + accent + '">' + esc_(j.name) + '</span><br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">' + esc_(j.code) + (j.issnOnline ? ' · e-ISSN ' + esc_(j.issnOnline) : '') + ' · AN ACRI JOURNALS PUBLICATION</span></span>'
     : brand + '<br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">PUBLISHED BY ' + esc_(P.name.toUpperCase()) + '</span>';
-  const right = '<div style="font-family:Arial,sans-serif;font-size:9.5px;line-height:1.55;color:#5E6875;text-align:right">' + esc_(P.name) + '<br>' + esc_(P.address).replace(/, (?=[^,]*Gujarat)/, ',<br>') + '<br>' + (P.phone ? 'Tel ' + esc_(P.phone) + ' · ' : '') + esc_(P.email) + '<br>' + esc_(P.web) + '</div>';
+  const right = '<div style="font-family:Arial,sans-serif;font-size:9.5px;line-height:1.55;color:#5E6875;text-align:right">' + esc_(P.name) + '<br>' + (opt.address ? esc_(P.address).replace(/, (?=[^,]*Gujarat)/, ',<br>') + '<br>' + (P.phone ? 'Tel ' + esc_(P.phone) + '<br>' : '') : '') + esc_(P.email) + '<br>' + esc_(P.web) + '</div>';
   const sigBlock = sg ? '<div style="margin-top:34px">' + (sig ? '<img src="' + sig + '" style="height:58px;display:block;margin:0 0 2px">' : '<div style="height:40px"></div>') +
     '<div style="border-top:1px solid #9AA3AE;width:220px;padding-top:6px;font-family:Arial,sans-serif;font-size:11.5px;line-height:1.45"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '';
   return '<html><head><style>@page{size:A4;margin:16mm 18mm 16mm 18mm}body{font-family:Georgia,\'Times New Roman\',serif;font-size:12.5px;line-height:1.62;color:#15191E}p{margin:0 0 10px}ul,ol{margin:0 0 10px 18px;padding:0}a{color:' + accent + '}</style></head><body>' +
@@ -92,7 +92,7 @@ function letterCtx_(p, u) {
   const asMe = !admin || l.signatory === 'me';
   if (asMe) need_(l.journal, 'Choose the journal whose letterhead you are writing on.');
   const me = asMe ? selfSignatory_(find_('Users', 'id', u.id), l.journal) : null;
-  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind } };
+  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind, address: admin && (l.address === true || l.address === 'true') } };
 }
 function letter_preview(p, u) {
   const c = letterCtx_(p, u);
@@ -144,7 +144,7 @@ function pubCertHtml_(a, j, author, ref) {
     '<div style="font-size:14px;line-height:1.6">published after peer review in<br><b style="color:' + accent + '">' + esc_(j.name) + '</b>' + (j.issnOnline ? ' (e-ISSN ' + esc_(j.issnOnline) + ')' : '') + '<br>' + esc_(where) + '</div>' +
     (a.doi ? '<div style="font-family:Arial,sans-serif;font-size:11px;margin-top:8px">DOI: <b>' + esc_(a.doi) + '</b></div>' : '') +
     '<table width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px"><tr>' +
-    '<td style="text-align:left;vertical-align:bottom;width:50%;font-family:Arial,sans-serif;font-size:9.5px;color:#5E6875">Issued ' + esc_(longDate_()) + '<br>Verify at ' + esc_(url) + '<br>' + esc_(P.name) + ', ' + esc_(P.address) + '</td>' +
+    '<td style="text-align:left;vertical-align:bottom;width:50%;font-family:Arial,sans-serif;font-size:9.5px;color:#5E6875">Issued ' + esc_(longDate_()) + '<br>Verify at ' + esc_(url) + '<br>' + esc_(P.name) + '</td>' +
     '<td style="text-align:right;vertical-align:bottom">' + (sg ? '<div style="display:inline-block;text-align:center">' + (sig ? '<img src="' + sig + '" style="height:54px;display:block;margin:0 auto 2px">' : '<div style="height:44px"></div>') +
     '<div style="border-top:1px solid #9AA3AE;padding-top:5px;font-family:Arial,sans-serif;font-size:11px;min-width:210px"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '') + '</td></tr></table>' +
     '</div></body></html>';

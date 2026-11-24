@@ -21,6 +21,11 @@ const journals = fs.readdirSync(path.join(CONTENT, 'journals'))
   .filter(j => j && j.active !== false)
   .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.code.localeCompare(b.code));
 const J = Object.fromEntries(journals.map(j => [j.slug, j]));
+// ACRI Journals management team (written by AES to content/management.json).
+const MGMT_FILE = path.join(CONTENT, 'management.json');
+const MGMT = (() => { const used = {}; const list = fs.existsSync(MGMT_FILE) ? (readJSON(MGMT_FILE).members || []) : [];
+  return list.map(p => { const q = Object.assign({}, p, { group: 'Management team' }); if (!p.pageOff) { let s = p.slug || slugify((p.plainName || String(p.name || '').split(',')[0]).trim()) || 'member', b = s, n = 2; while (used[s]) s = b + '-' + (n++); used[s] = 1; q.slug = s; } else q.slug = ''; return q; }); })();
+const mgmtUrl = (p) => `/management/${p.slug}/`;
 for (const j of journals) {
   j.issues = readJSON(path.join(CONTENT, 'journals', j.slug, 'issues.json'), []);
   const d = path.join(CONTENT, 'journals', j.slug), has = (f) => fs.existsSync(path.join(d, f));
@@ -145,9 +150,9 @@ function footer() {
     <div><h5>Journals</h5>${journals.map(j => `<a href="/journals/${j.slug}/">${esc(j.code)}</a>`).join('')}</div>
     <div><h5>Publish</h5><a href="/for-authors/">For Authors</a><a href="/for-authors/#template">Manuscript template</a><a href="/portal/#/submit">Submit a manuscript</a><a href="/for-reviewers/">For Reviewers</a></div>
     <div><h5>Policies</h5><a href="/policies/privacy/">Privacy</a><a href="/policies/terms/">Terms of use</a><a href="/policies/open-access/">Open access</a><a href="/policies/peer-review/">Peer review</a><a href="/policies/ethics/">Publication ethics</a><a href="/policies/">All policies →</a></div>
-    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/how-it-works/">How it works</a><a href="/aes/">AES editorial system</a><a href="/one/">ACRI One</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/one/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
+    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/management/">Management</a><a href="/how-it-works/">How it works</a><a href="/aes/">AES editorial system</a><a href="/one/">ACRI One</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/one/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
   </div>
-  <div class="legal"><span>© ${new Date().getFullYear()} ACRI Journals · Part of ACRIVERSE. Website © ${esc(pubInfo().name)}; articles © their authors, open access under the licence stated on each article. Published by ${esc(pubInfo().name)}${pubInfo().address ? ', ' + esc(pubInfo().address) : ''}.</span><span><a href="/policies/privacy/">Privacy</a> · <a href="/policies/terms/">Terms</a> · <a href="/policies/">All policies</a> · <a href="/about/#contact">Contact</a></span></div>
+  <div class="legal"><span>© ${new Date().getFullYear()} ACRI Journals · Part of ACRIVERSE. Website © ${esc(pubInfo().name)}; articles © their authors, open access under the licence stated on each article. Published by ${esc(pubInfo().name)}.</span><span><a href="/policies/privacy/">Privacy</a> · <a href="/policies/terms/">Terms</a> · <a href="/policies/">All policies</a> · <a href="/about/#contact">Contact</a></span></div>
 </div></footer>`;
 }
 
@@ -177,13 +182,50 @@ function tocItem(a) {
   <div class="acts"><a class="chip" href="${a.path}">Full text</a><a class="chip" href="${a.pdfPath}">${ICON.pdf.replace('<svg', '<svg width="13" height="13"')} PDF</a></div></div>`;
 }
 
-function coverArt(seed, accent) {
-  // Deterministic abstract art for features (no stock imagery required).
-  let h = 0; for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const r = (n) => { h = (h * 1103515245 + 12345) >>> 0; return h % n; };
-  const shapes = Array.from({ length: 7 }, (_, i) => `<circle cx="${r(800)}" cy="${r(420)}" r="${60 + r(180)}" fill="none" stroke="rgba(255,255,255,${(0.05 + i * 0.015).toFixed(3)})" stroke-width="${10 + r(40)}"/>`).join('');
-  const lines = Array.from({ length: 14 }, (_, i) => `<rect x="${520 + (i % 7) * 34}" y="${80 + Math.floor(i / 7) * 150 + r(40)}" width="18" height="${40 + r(110)}" rx="3" fill="rgba(255,255,255,${0.08 + (i % 4) * 0.05})"/>`).join('');
-  return `<svg viewBox="0 0 800 410" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="g${h % 999}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${accent}"/><stop offset="1" stop-color="#0B2545"/></linearGradient></defs><rect width="800" height="410" fill="url(#g${h % 999})"/>${shapes}${lines}</svg>`;
+// Deterministic art for each article: the motif follows the topic, the colours follow the journal,
+// and the details follow the article id, so no two articles look alike.
+const ART_PALS = ['#0B2545', '#13315C', '#0E5E6F', '#1F7A4D', '#5B2A86', '#8A3B12', '#7A1F3D', '#2D3A8C'];
+const artText = (a) => strip([a.title, (a.keywords || []).join(' '), a.type].join(' ')).toLowerCase();
+function artMotif(t, h) {
+  if (/financ|stock|market|return|invest|bank|price|bitcoin|crypto|forecast|econom|fii|nifty|accounting|tax|profit/.test(t)) return 'chart';
+  if (/artificial intelligence|\bai\b|digital|technolog|machine|data|algorithm|network|online|cyber|platform/.test(t)) return 'network';
+  if (/educat|teach|learn|school|student|curricul|pedagog|class|liberal arts|universit/.test(t)) return 'grid';
+  if (/sustainab|esg|climate|environment|green|degrowth|energy|csr|social responsib/.test(t)) return 'waves';
+  if (/organi[sz]ation|leader|manag|employee|human resource|succession|culture|behaviou?r|retire|team|governance/.test(t)) return 'blocks';
+  return ['orbits', 'chart', 'network', 'grid', 'waves', 'blocks'][h % 6];
+}
+function coverArt(seed, accent, text = '') {
+  let h = 0; for (const c of String(seed)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const r = (n) => { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 8) % n; };
+  const motif = artMotif(text, h), id = 'g' + (h % 99991), c2 = ART_PALS[r(ART_PALS.length)], ang = r(4);
+  const W = (o) => `rgba(255,255,255,${o})`;
+  let m = '';
+  if (motif === 'chart') {
+    const n = 14, pts = []; let y = 300 + r(60);
+    for (let i = 0; i < n; i++) { y = Math.max(70, Math.min(360, y - 30 + r(56) - (i > n / 2 ? 8 : 0))); pts.push([60 + i * 52, y]); }
+    m += Array.from({ length: 5 }, (_, i) => `<line x1="40" x2="760" y1="${80 + i * 70}" y2="${80 + i * 70}" stroke="${W(.07)}"/>`).join('');
+    m += pts.map(([x, yy], i) => { const hgt = 20 + r(60); return `<rect x="${x - 7}" y="${yy - hgt / 2}" width="14" height="${hgt}" rx="2" fill="${W(i % 3 ? .16 : .3)}"/><line x1="${x}" x2="${x}" y1="${yy - hgt / 2 - 14}" y2="${yy + hgt / 2 + 14}" stroke="${W(.25)}"/>`; }).join('');
+    m += `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${W(.85)}" stroke-width="3" stroke-linejoin="round"/><circle cx="${pts[n - 1][0]}" cy="${pts[n - 1][1]}" r="7" fill="#fff"/>`;
+  } else if (motif === 'network') {
+    const P = Array.from({ length: 22 }, () => [40 + r(720), 30 + r(350), 2 + r(6)]);
+    for (let i = 0; i < P.length; i++) for (let k = i + 1; k < P.length; k++) { const d = Math.hypot(P[i][0] - P[k][0], P[i][1] - P[k][1]); if (d < 170) m += `<line x1="${P[i][0]}" y1="${P[i][1]}" x2="${P[k][0]}" y2="${P[k][1]}" stroke="${W((0.32 * (1 - d / 170)).toFixed(2))}" stroke-width="1.5"/>`; }
+    m += P.map(([x, y, s], i) => `<circle cx="${x}" cy="${y}" r="${s + (i % 5 === 0 ? 6 : 0)}" fill="${W(i % 5 === 0 ? .9 : .5)}"/>${i % 5 === 0 ? `<circle cx="${x}" cy="${y}" r="${s + 18}" fill="none" stroke="${W(.25)}"/>` : ''}`).join('');
+  } else if (motif === 'grid') {
+    const cs = 46, cols = 18, rows = 9;
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) { const v = r(10); if (v > 5) m += `<rect x="${x * cs + 6}" y="${y * cs + 6}" width="${cs - 10}" height="${cs - 10}" rx="${v > 8 ? 18 : 4}" fill="${W((0.05 + v * 0.035).toFixed(2))}"/>`; }
+    m += `<path d="M${120 + r(300)} 300 q 90 -70 180 0 q 90 -70 180 0" fill="none" stroke="${W(.8)}" stroke-width="4"/>`;
+  } else if (motif === 'waves') {
+    for (let i = 0; i < 9; i++) { const y0 = 90 + i * 34, a1 = 20 + r(50), ph = r(200); m += `<path d="M -20 ${y0} C ${180 + ph} ${y0 - a1}, ${380 - ph / 2} ${y0 + a1}, 560 ${y0} S 820 ${y0 - a1 / 2}, 840 ${y0}" fill="none" stroke="${W((0.08 + i * 0.05).toFixed(2))}" stroke-width="${2 + (i % 3) * 2}"/>`; }
+    m += `<circle cx="${560 + r(160)}" cy="${80 + r(60)}" r="${34 + r(20)}" fill="${W(.85)}"/>`;
+  } else if (motif === 'blocks') {
+    const base = 410;
+    for (let i = 0; i < 11; i++) { const w = 40 + r(60), hgt = 60 + r(230), x = 40 + i * 68; m += `<rect x="${x}" y="${base - hgt}" width="${w}" height="${hgt}" fill="${W((0.08 + r(5) * 0.05).toFixed(2))}"/>`; }
+    const lx = 100 + r(500); m += `<rect x="${lx}" y="${60 + r(60)}" width="90" height="90" rx="6" fill="none" stroke="${W(.85)}" stroke-width="3" transform="rotate(${r(30) - 15} ${lx + 45} 130)"/>`;
+  } else {
+    m += Array.from({ length: 8 }, (_, i) => `<circle cx="${r(800)}" cy="${r(420)}" r="${50 + r(190)}" fill="none" stroke="${W((0.05 + i * 0.02).toFixed(3))}" stroke-width="${6 + r(36)}"/>`).join('');
+  }
+  const x2 = [1, 0, 1, 0][ang], y2 = [1, 1, 0, 0][ang];
+  return `<svg viewBox="0 0 800 410" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2 || 1}"><stop offset="0" stop-color="${accent}"/><stop offset="1" stop-color="${c2 === accent ? '#0B2545' : c2}"/></linearGradient><radialGradient id="${id}r" cx="${20 + r(60)}%" cy="${10 + r(40)}%" r="70%"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><rect width="800" height="410" fill="url(#${id})"/><rect width="800" height="410" fill="url(#${id}r)"/>${m}</svg>`;
 }
 
 // ---------------------------------------------------------------- article page
@@ -417,68 +459,107 @@ ${a.references?.length ? `<div class="pdf-refs"><h2>References</h2><ol>${a.refer
 
 // ---------------------------------------------------------------- network pages
 function homePage() {
-  const [lead, ...rest] = pub.filter(a => a.featured).concat(pub.filter(a => !a.featured));
-  const jp = pub.slice(0, 8);
+  const ordered = pub.filter(a => a.featured).concat(pub.filter(a => !a.featured));
+  const [lead] = ordered;
+  const latest = pub.slice(0, 9);
   const authorsN = new Set(pub.flatMap(a => (a.authors || []).map(x => ((x.given || '') + ' ' + (x.family || '')).trim().toLowerCase()))).size;
   const doiN = pub.filter(a => a.doi).length;
   const subjects = [...new Set(journals.map(j => j.subjectArea || '').filter(Boolean))];
-  const ico = {
-    oa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.6-1.7"/></svg>',
-    rev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.6-3.3 3-5 6-5s5.4 1.7 6 5M14.5 15.5c2.6-.6 5.6.6 6.5 4.5"/></svg>',
-    doi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
-    find: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>',
-  };
-  const stat = (n, l) => `<div class="hstat"><b>${n}</b><span>${l}</span></div>`;
+  const H1 = esc((/from India/i.test(site.homeHeadline || '') ? '' : site.homeHeadline) || 'Rigorous research,'), H1b = esc((/to the world/i.test(site.homeHeadlineAccent || '') ? '' : site.homeHeadlineAccent) || 'open to everyone.');
+  const intro = esc(site.homeIntro || 'ACRI Journals publishes peer-reviewed, open-access journals across ' + (subjects.length ? subjects.join(', ').replace(/, ([^,]*)$/, ' and $1').toLowerCase() : 'business and education') + '. Every article is free to read, carefully reviewed and built to be found, cited and preserved.');
+  const plain = (t) => strip(String(t || ''));
+  // Rotating "now reading" cards in the hero: real, recent articles.
+  const reel = ordered.slice(0, 5);
+  const ticker = pub.slice(0, 14);
+  const mtext = site.homeManifesto || 'Good research should not wait behind a paywall, or behind a famous name. We review every manuscript *on its merit*, publish it *openly*, and keep it *permanently*, so new voices and established scholars reach readers *on equal terms*.';
+  const manifesto = esc(mtext).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  const stem = (w) => w.toLowerCase().replace(/(ing|ment|ments|ship|al|s)$/,'').slice(0, 7);
+  const topics = journals.flatMap(j => (j.subjects || []).map(name => {
+    const keys = name.toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !['and', 'with', 'from'].includes(w)).map(stem);
+    const n = byJournal(j.slug).filter(a => { const t = artText(a) + ' ' + strip(abstractText(a) || '').toLowerCase(); return keys.some(k => t.includes(k)); }).length;
+    return { name, code: j.code, c: j.accent, n };
+  })).sort((a, b) => b.n - a.n).slice(0, 12);
+  const count = (n, l, suf = '') => `<div class="hx-stat"><b data-count="${n}" data-suf="${suf}">${n}${suf}</b><span>${l}</span></div>`;
   const body = `
-<section class="intro"><div class="wrap">
-  <div class="intro-l">
-    <span class="kicker">ACRIVERSE · Ahmedabad, India</span>
-    <h1>${esc(site.homeHeadline || 'Research from India,')} <em>${esc(site.homeHeadlineAccent ?? 'open to the world.')}</em></h1>
-    <p>${esc(site.homeIntro || 'ACRI Journals publishes peer-reviewed, open-access journals across ' + (subjects.length ? subjects.join(', ').replace(/, ([^,]*)$/, ' and $1').toLowerCase() : 'business and education') + '. Every article is free to read, carefully reviewed and built to be found, cited and preserved.')}</p>
-    <form class="isearch" action="/search/" role="search"><input name="q" placeholder="Search articles, authors and topics" aria-label="Search ACRI Journals"><button class="btn btn-green">Search</button></form>
-    <div class="intro-cta"><a class="btn btn-green" href="/portal/#/submit">Submit a manuscript</a><a class="btn btn-line" href="#journals">Explore the journals</a></div>
+<section class="hx-hero"><canvas class="hx-net" aria-hidden="true"></canvas><div class="hx-glow" aria-hidden="true"></div>
+<div class="wrap hx-grid">
+  <div class="hx-l">
+    <span class="hx-eyebrow"><i></i>Peer-reviewed · Open access<span class="hx-loc"> · Permanent DOIs</span></span>
+    <h1 class="hx-h1"><span class="hx-line">${H1}</span> <em class="hx-line">${H1b}</em></h1>
+    <p class="hx-p">${intro}</p>
+    <form class="hx-search" action="/search/" role="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input name="q" placeholder="Search articles, authors and topics" aria-label="Search ACRI Journals"><button>Search</button></form>
+    <div class="hx-cta"><a class="hx-btn hx-btn-g" href="/portal/#/submit">Submit your research <span>→</span></a><a class="hx-btn hx-btn-o" href="#journals">Explore the journals</a></div>
   </div>
-  <div class="intro-r">
-    <div class="hstats">${stat(journals.length, journals.length === 1 ? 'journal' : 'journals')}${stat(pub.length, 'articles published')}${stat(authorsN, 'authors')}${stat('100%', 'open access')}</div>
-    <div class="ilogos">${journals.map(j => `<a href="/journals/${j.slug}/" title="${esc(j.name)}">${jimg(j, 'markWhite', '', j.code)}<span>${esc(j.code)}</span></a>`).join('')}</div>
+  <div class="hx-r">
+    ${reel.length ? `<div class="hx-reel" aria-label="Recently published">
+      <div class="hx-reel-h"><span class="hx-live"><i></i>Now reading</span><span class="hx-dots">${reel.map((_, i) => `<button aria-label="Article ${i + 1}" data-i="${i}"${i ? '' : ' class="on"'}></button>`).join('')}</span></div>
+      ${reel.map((a, i) => `<a class="hx-card${i ? '' : ' on'}" href="${a.path}" style="--c:${a.j.accent}"><div class="hx-art">${coverArt(a.id, a.j.accent, artText(a))}</div><span class="hx-tag">${esc(a.j.code)} · ${esc(a.type || 'Article')}</span><h3>${plain(a.title)}</h3><p>${esc(authorsShort(a.authors))}</p><span class="hx-read">Read the article →</span></a>`).join('')}
+    </div>` : `<div class="hx-reel"><div class="hx-card on"><div class="hx-art">${coverArt('acri', '#1F7A4D')}</div><span class="hx-tag">Now accepting submissions</span><h3>Open-access research from the ACRI journal network</h3></div></div>`}
+  </div>
+</div>
+<div class="wrap hx-stats">${count(journals.length, journals.length === 1 ? 'Journal' : 'Journals')}${count(pub.length, 'Articles published')}${count(authorsN, 'Authors')}${count(doiN, 'DOIs registered')}${count(100, 'Free to read', '%')}</div>
+</section>
+${ticker.length ? `<section class="hx-ticker" aria-label="Latest titles"><div class="hx-track">${[0, 1].map(k => `<div class="hx-run"${k ? ' aria-hidden="true"' : ''}>${ticker.map(a => `<a href="${a.path}"${k ? ' tabindex="-1"' : ''}><b style="color:${a.j.accent === '#0B2545' ? '#7DB4F0' : 'var(--hx-tick)'}">${esc(a.j.code)}</b>${esc(plain(a.title).slice(0, 90))}${plain(a.title).length > 90 ? '…' : ''}</a>`).join('<i>✦</i>')}<i>✦</i></div>`).join('')}</div></section>` : ''}
+
+<section class="hx-manifesto"><div class="wrap"><span class="hx-k">What we stand for</span><p class="reveal">${manifesto}</p></div></section>
+<section class="hx-sec hx-feat"><div class="wrap">
+  <div class="hx-sh"><div><span class="hx-k">Featured research</span><h2>Read what's new.</h2></div><a class="hx-more" href="/online-first/">All new articles →</a></div>
+  <div class="hx-fgrid">
+    ${lead ? `<a class="hx-lead reveal" href="${lead.path}" style="--c:${lead.j.accent}"><div class="hx-art">${coverArt(lead.id, lead.j.accent, artText(lead))}</div><div class="hx-lead-b"><span class="hx-tag">${esc(lead.j.code)} · ${esc(lead.type || 'Article')}</span><h3>${lead.title}</h3><p>${esc(snippet(lead, 230))}</p><span class="meta">${esc(authorsShort(lead.authors))} · ${fmtDate(lead.published)}</span></div></a>` : ''}
+    <div class="hx-list">${latest.filter(a => a !== lead).slice(0, 5).map((a, i) => `<a class="hx-li reveal" href="${a.path}" style="--c:${a.j.accent};transition-delay:${i * 60}ms"><span class="hx-n">${String(i + 1).padStart(2, '0')}</span><div><span class="hx-tag">${esc(a.j.code)} · ${esc(a.type || 'Article')}</span><h4>${a.title}</h4><span class="meta">${esc(authorsTiny(a.authors))} · ${fmtDate(a.published)}</span></div></a>`).join('') || '<p class="meta">New articles will appear here as they are published.</p>'}</div>
   </div>
 </div></section>
-<section class="hero"><div class="wrap">
-  ${lead ? `<a class="feature" href="${lead.path}"><span class="kicker" style="color:var(--muted);margin-bottom:12px;display:block">Featured research</span><div class="art">${coverArt(lead.id, lead.j.accent)}</div>
-    <span class="kicker" style="color:${lead.j.accent}">${esc(lead.j.code)} · ${esc(lead.type)}</span>
-    <h1>${lead.title}</h1><p>${esc(snippet(lead, 260))}</p>
-    <div class="meta">${esc(authorsShort(lead.authors))}</div></a>`
-    : `<div class="feature"><div class="art">${coverArt('acri', '#1F7A4D')}</div><span class="kicker">Now accepting submissions</span><h1>Open-access research from the ACRI journal network</h1><a class="btn btn-primary" href="/portal/#/submit">Submit a manuscript</a></div>`}
-  <div class="stack"><h2>Just Published</h2>${jp.length ? jp.slice(0, 5).map(a => itemCard(a)).join('') : '<p class="meta" style="padding:16px 0">New articles will appear here as they are published.</p>'}
-    ${jp.length > 5 ? '<a href="/online-first/" style="padding-top:14px;font-weight:600;font-size:14px">See all new articles →</a>' : ''}</div>
+
+<section class="hx-sec hx-journals" id="journals"><div class="wrap">
+  <div class="hx-sh"><div><span class="hx-k">The network</span><h2>${journals.length} journals. One standard.</h2></div><a class="hx-more" href="/journals/">All journals →</a></div>
+  <div class="hx-jgrid">${journals.map((j, i) => { const n = byJournal(j.slug).length; return `<a class="hx-j reveal" href="/journals/${j.slug}/" style="--c:${j.accent};transition-delay:${i * 80}ms">
+    <div class="hx-j-top">${jimg(j, 'markWhite', 'hx-jm', '')}<span class="hx-j-code">${esc(j.code)}</span></div>
+    <h3>${esc(j.name)}</h3><p>${esc((j.scope || '').slice(0, 150))}${(j.scope || '').length > 150 ? '…' : ''}</p>
+    <div class="hx-j-meta"><span>${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) : 'ISSN applied'}</span><span>${esc(j.frequency || '')}</span><span>${n ? n + ' article' + (n === 1 ? '' : 's') : 'New journal'}</span></div>
+    <span class="hx-j-go">Enter journal <b>→</b></span></a>`; }).join('')}</div>
 </div></section>
-<section class="sec" id="journals"><div class="wrap">
-  <div class="sec-h"><div><span class="kicker">The network</span><h2>Our journals</h2></div><a href="/journals/">All journals →</a></div>
-  <div class="jgrid">${journals.map(j => { const n = byJournal(j.slug).length; return `<div class="jcard2" style="--accent:${j.accent};--accent-tint:${j.accentTint || '#F3F5F8'}">
-    <a class="cov" href="/journals/${j.slug}/">${jimg(j, 'markWhite', 'cm', '')}<div><b>${esc(j.code)}</b><small>${esc(j.school || site.publisher)}</small></div></a>
-    <div class="bd"><h3><a href="/journals/${j.slug}/">${esc(j.name)}</a></h3><p>${esc((j.scope || '').slice(0, 170))}${(j.scope || '').length > 170 ? '…' : ''}</p>
-    <div class="jmeta"><span>${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) : 'ISSN: applying'}</span><span>${esc(j.frequency || '')}</span><span>${n ? n + ' article' + (n === 1 ? '' : 's') : 'New journal'}</span></div>
-    <div class="jlinks"><a href="/journals/${j.slug}/">Read</a><a href="/journals/${j.slug}/about/">About</a><a href="/portal/#/submit?journal=${j.slug}" class="go">Submit →</a></div></div></div>`; }).join('')}</div>
+
+${topics.length ? `<section class="hx-sec hx-topics"><div class="wrap">
+  <div class="hx-sh"><div><span class="hx-k">Browse by subject</span><h2>Find your field.</h2></div><a class="hx-more" href="/search/">Search everything →</a></div>
+  <div class="hx-tgrid">${topics.map((t, i) => `<a class="hx-t reveal" href="/search/?q=${encodeURIComponent(t.name)}" style="--c:${t.c};transition-delay:${(i % 6) * 50}ms"><span class="hx-t-j">${esc(t.code)}</span><b>${esc(t.name)}</b><span class="hx-t-n">${t.n ? t.n + ' article' + (t.n === 1 ? '' : 's') : 'Open for submissions'} →</span></a>`).join('')}</div>
+</div></section>` : ''}
+<section class="hx-sec hx-why"><div class="wrap">
+  <div class="hx-sh hx-sh-c"><div><span class="hx-k">Why publish with us</span><h2>Serious about research.<br><em>Generous with access.</em></h2></div></div>
+  <div class="hx-pgrid">
+    <div class="hx-pil reveal"><span class="hx-pn">01</span><h3>Free to read, forever</h3><p>Every article is open access under CC BY 4.0. No paywalls, no logins, and authors keep their copyright.</p></div>
+    <div class="hx-pil reveal" style="transition-delay:80ms"><span class="hx-pn">02</span><h3>Real peer review</h3><p>Double-blind review by at least two independent experts, with editors bound by a signed ethics agreement.</p></div>
+    <div class="hx-pil reveal" style="transition-delay:160ms"><span class="hx-pn">03</span><h3>Permanent and citable</h3><p>Every article gets a DOI through Zenodo (CERN)${doiN ? `, ${doiN} so far` : ''}, archived away from this website so the record lasts.</p></div>
+    <div class="hx-pil reveal" style="transition-delay:240ms"><span class="hx-pn">04</span><h3>Built to be found</h3><p>Article pages carry the metadata Google Scholar and indexers read, plus a typeset PDF and ready-made citations.</p></div>
+  </div>
 </div></section>
-<section class="sec pillars"><div class="wrap"><div class="pgrid">
-  <div class="pil">${ico.oa}<h3>Free to read, forever</h3><p>Every article is open access under CC BY 4.0. No paywalls, no logins, and authors keep their copyright.</p></div>
-  <div class="pil">${ico.rev}<h3>Real peer review</h3><p>Double-blind review by at least two independent experts, with editors who sign an agreement on ethics and confidentiality.</p></div>
-  <div class="pil">${ico.doi}<h3>Permanent and citable</h3><p>DOIs registered through Zenodo (CERN)${doiN ? `, ${doiN} so far` : ''}, with copies archived away from this website so the record lasts.</p></div>
-  <div class="pil">${ico.find}<h3>Built to be found</h3><p>Clean article pages with the metadata Google Scholar and indexers read, plus a typeset PDF and ready-made citations.</p></div>
-</div></div></section>
-${jp.length > 5 ? `<section class="sec"><div class="wrap"><div class="sec-h"><div><span class="kicker">Latest</span><h2>Recent research across the network</h2></div><a href="/online-first/">View all →</a></div><div class="grid4">${jp.slice(0, 8).map(a => `<a class="card" href="${a.path}"><span class="atype" style="color:${a.j.accent}">${esc(a.j.code)} · ${esc(a.type)}</span><h3>${a.title}</h3><div class="meta">${esc(authorsTiny(a.authors))}</div></a>`).join('')}</div></div></section>` : ''}
-<section class="band"><div class="wrap">
-  <div><span class="kicker" style="color:#7DD3A6">Publish with ACRI Journals</span><h2>One portal. Careful review. A permanent home for your work.</h2>
-  <p>Submit to any ACRI journal through one account. Follow every stage online, from technical check to proofs, and get a typeset PDF and a DOI when your article is published.</p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn btn-green" href="/portal/#/submit">Submit a manuscript</a><a class="btn btn-line" href="/for-authors/">Author guidelines</a></div></div>
-  <div class="steps"><div class="step"><b>1</b><span>Prepare your paper with the ACRI Journals manuscript template.</span></div><div class="step"><b>2</b><span>Submit in the author portal. The editorial office checks scope and format.</span></div><div class="step"><b>3</b><span>Double-blind peer review by at least two independent reviewers.</span></div><div class="step"><b>4</b><span>On acceptance: copyediting, typeset proofs, DOI and publication.</span></div></div>
+
+<section class="hx-path"><div class="wrap">
+  <div class="hx-path-l"><span class="hx-k" style="color:#7DD3A6">From manuscript to DOI</span><h2>One portal. Careful review. A permanent home for your work.</h2><p>Submit to any ACRI journal with one ACRI One account and follow every stage online.</p>
+  <div class="hx-cta"><a class="hx-btn hx-btn-g" href="/portal/#/submit">Submit a manuscript <span>→</span></a><a class="hx-btn hx-btn-o" href="/how-it-works/">How it works</a></div></div>
+  <ol class="hx-steps">${[['Prepare', 'Use the ACRI Journals manuscript template.'], ['Submit', 'The editorial office checks scope and format.'], ['Review', 'Double-blind review by two or more experts.'], ['Publish', 'Proofs, typeset PDF, DOI and certificate.']].map((s, i) => `<li class="reveal" style="transition-delay:${i * 90}ms"><b>${i + 1}</b><div><h4>${s[0]}</h4><p>${s[1]}</p></div></li>`).join('')}</ol>
 </div></section>
-<section class="sec" style="border:0"><div class="wrap" style="max-width:820px;text-align:center">
-  <h2 style="font:600 28px/1.2 var(--serif);margin:0 0 8px">Get new research by email</h2><p class="meta" style="margin:0 0 18px;font-size:15px">New articles and issues from ACRI Journals. No more than one email a week.</p>
-  <form class="nl" data-api="subscribe" style="max-width:560px;margin:0 auto"><input type="email" name="email" required placeholder="Email address" aria-label="Email address"><button class="btn btn-primary">Subscribe</button><p class="meta nl-msg" style="width:100%;margin:6px 0 0"></p></form>
-</div></section>`;
-  return layout({ title: '', canonical: BASE + '/', body, head: `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', name: site.name, url: BASE, parentOrganization: { '@type': 'Organization', name: site.publisherName || site.publisher, url: site.publisherUrl } })}</script>` });
+
+<section class="hx-sec hx-nl"><div class="wrap">
+  <div class="hx-nl-box reveal"><div><span class="hx-k">Stay in the loop</span><h2>New research, in your inbox.</h2><p>New articles and issues from ACRI Journals. No more than one email a week.</p></div>
+  <form class="nl" data-api="subscribe"><input type="email" name="email" required placeholder="Your email address" aria-label="Email address"><button class="hx-btn hx-btn-g">Subscribe</button><p class="meta nl-msg" style="width:100%;margin:6px 0 0"></p></form></div>
+</div></section>
+<script>${HOME_JS}</script>`;
+  return layout({ title: '', canonical: BASE + '/', bodyClass: 'hx', body, head: `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@type': 'Organization', name: site.name, url: BASE, parentOrganization: { '@type': 'Organization', name: site.publisherName || site.publisher, url: site.publisherUrl } })}</script>` });
 }
+// Small, dependency-free motion for the homepage. Everything is skipped when the reader prefers reduced motion.
+const HOME_JS = `(()=>{const R=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.reveal').forEach(el=>R?el.classList.add('in'):io.observe(el));
+const nums=document.querySelectorAll('[data-count]');const run=el=>{const t=+el.dataset.count,s=el.dataset.suf||'',d=1300,t0=performance.now();const f=n=>{const p=Math.min(1,(n-t0)/d),v=Math.round(t*(1-Math.pow(1-p,3)));el.textContent=v+s;if(p<1)requestAnimationFrame(f)};requestAnimationFrame(f)};
+if(!R){const io2=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){run(e.target);io2.unobserve(e.target)}}));nums.forEach(n=>{n.textContent='0'+(n.dataset.suf||'');io2.observe(n)})}
+const cards=[...document.querySelectorAll('.hx-card')],dots=[...document.querySelectorAll('.hx-dots button')];let i=0,tm;const show=k=>{i=(k+cards.length)%cards.length;cards.forEach((c,n)=>c.classList.toggle('on',n===i));dots.forEach((d,n)=>d.classList.toggle('on',n===i))};
+const go=()=>{clearInterval(tm);if(!R&&cards.length>1)tm=setInterval(()=>show(i+1),5200)};dots.forEach(d=>d.onclick=()=>{show(+d.dataset.i);go()});const reel=document.querySelector('.hx-reel');if(reel){reel.onmouseenter=()=>clearInterval(tm);reel.onmouseleave=go}go();
+const cv=document.querySelector('.hx-net');if(cv&&!R){const x=cv.getContext('2d');let W,H,P=[];const DPR=Math.min(2,devicePixelRatio||1);
+const size=()=>{W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;x.setTransform(DPR,0,0,DPR,0,0);const n=Math.round(W*H/16000);P=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.6+.6}))};
+size();addEventListener('resize',size);let vis=true;new IntersectionObserver(e=>vis=e[0].isIntersecting).observe(cv);
+const tick=()=>{if(vis){x.clearRect(0,0,W,H);for(const p of P){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1}
+for(let a=0;a<P.length;a++){for(let b=a+1;b<P.length;b++){const dx=P[a].x-P[b].x,dy=P[a].y-P[b].y,d=dx*dx+dy*dy;if(d<13000){x.strokeStyle='rgba(125,211,166,'+(0.16*(1-d/13000))+')';x.lineWidth=1;x.beginPath();x.moveTo(P[a].x,P[a].y);x.lineTo(P[b].x,P[b].y);x.stroke()}}
+x.fillStyle='rgba(200,225,255,.55)';x.beginPath();x.arc(P[a].x,P[a].y,P[a].r,0,7);x.fill()}}requestAnimationFrame(tick)};tick()}})();`;
 
 function journalsIndex() {
   return layout({ title: 'Journals', canonical: BASE + '/journals/', body: `<div class="wrap page"><div class="page-h"><span class="kicker">The network</span><h1>Our Journals</h1><p>Each ACRI journal is edited independently by its own Editor-in-Chief and editorial board, and shares the network's standards for peer review, open access and production.</p></div>
@@ -514,7 +595,7 @@ function journalHome(j) {
   const lead = list.find(a => a.featured) || list[0];
   const body = `
 <section class="hero"><div class="wrap">
-  ${lead ? `<a class="feature" href="${lead.path}"><div class="art">${coverArt(lead.id, j.accent)}</div><span class="kicker">${esc(lead.type)}</span><h1>${lead.title}</h1><p>${esc(snippet(lead, 240))}</p><div class="meta">${esc(authorsShort(lead.authors))}</div></a>`
+  ${lead ? `<a class="feature" href="${lead.path}"><div class="art">${coverArt(lead.id, j.accent, artText(lead))}</div><span class="kicker">${esc(lead.type)}</span><h1>${lead.title}</h1><p>${esc(snippet(lead, 240))}</p><div class="meta">${esc(authorsShort(lead.authors))}</div></a>`
     : `<div class="feature"><div class="art">${coverArt(j.slug, j.accent)}</div><span class="kicker">Call for papers</span><h1>${esc(j.name)}</h1><p>${esc(j.scope)}</p><a class="btn btn-accent" href="/portal/#/submit?journal=${j.slug}">Submit a manuscript</a></div>`}
   <div class="stack"><h2>New Online</h2>${list.slice(0, 5).map(a => itemCard(a, false)).join('') || '<p class="meta" style="padding:16px 0">Articles will appear here as they are published.</p>'}</div>
 </div></section>
@@ -578,9 +659,10 @@ const personUrl = (j, p) => `/journals/${j.slug}/editorial-board/${p.slug}/`;
 // Everywhere this person serves, across the network.
 const servesOf = (p) => {
   const key = p.orcid || normName(plainOf(p)), out = [];
-  for (const j of journals) for (const q of boardOf(j)) if ((q.orcid && q.orcid === p.orcid) || normName(plainOf(q)) === normName(plainOf(p))) { if (!key) continue; out.push({ j, q }); }
+  for (const j of journals) for (const q of boardOf(j)) if (q.slug && q.group !== 'Publisher & journal management' && ((q.orcid && q.orcid === p.orcid) || normName(plainOf(q)) === normName(plainOf(p)))) { if (!key) continue; out.push({ j, q }); }
   return out;
 };
+const mgmtOf = (p) => MGMT.filter(q => (p.orcid && q.orcid === p.orcid) || normName(plainOf(q)) === normName(plainOf(p)));
 const authoredBy = (p) => pub.filter(a => (a.authors || []).some(au => (p.orcid && au.orcid === p.orcid) || normName(fullName(au)) === normName(plainOf(p)))).sort((a, b) => String(b.published).localeCompare(String(a.published)));
 const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, t.lastIndexOf(' ', n) > 0 ? t.lastIndexOf(' ', n) : n) + '…' : t; };
 const ICONL = { scholar: 'Google Scholar', linkedin: 'LinkedIn', website: 'Website', profile: 'Institutional profile' };
@@ -588,16 +670,17 @@ const ICONL = { scholar: 'Google Scholar', linkedin: 'LinkedIn', website: 'Websi
 function boardPage(j) {
   currentTab = 'board';
   const MG = 'Publisher & journal management';
-  const groups = {}; for (const p of boardOf(j)) (groups[p.group || p.role] ||= []).push(p);
+  const groups = {}; for (const p of boardOf(j)) if (!(MGMT.length && (p.group === MG))) (groups[p.group || p.role] ||= []).push(p);
+  if (MGMT.length) groups[MG] = MGMT.map(p => Object.assign({}, p, { _m: 1 }));
   const keys = Object.keys(groups).sort((a, b) => (a === MG) - (b === MG));
   const card = (p) => {
-    const u = p.slug ? personUrl(j, p) : '';
+    const u = p._m ? (p.slug ? mgmtUrl(p) : '') : p.slug ? personUrl(j, p) : '';
     const nm = u ? `<a class="pname" href="${u}">${esc(p.name)}</a>` : esc(p.name);
     return `<div class="person${p.photo ? ' has-photo' : ''}">${p.photo ? (u ? `<a href="${u}" tabindex="-1" aria-hidden="true">` : '') + `<img class="pph" src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" width="84" height="84">` + (u ? '</a>' : '') : ''}<span class="role">${esc(p.role)}</span><b>${nm}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}<span>${esc(p.affiliation || '')}</span>${p.address ? `<span class="lbl">Institutional address</span><span>${esc(p.address)}</span>` : ''}${p.email ? `<span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}${p.profile ? `<span><a href="${esc(p.profile)}" rel="noopener">Institutional profile ↗</a></span>` : ''}${p.orcid ? `<span><a class="orcidl" href="https://orcid.org/${esc(p.orcid)}" rel="noopener" title="ORCID iD">${ORCID}${esc(p.orcid)}</a></span>` : ''}${p.since ? `<span>Serving since ${esc(p.since)}</span>` : ''}${p.bio ? `<p class="pbio">${esc(short(p.bio, 240))}</p>` : ''}${u ? `<a class="pmore" href="${u}">View full profile →</a>` : ''}</div>`;
   };
   return layout({ j, title: 'Editorial Board', canonical: BASE + `/journals/${j.slug}/editorial-board/`, body: `<div class="wrap page"><div class="page-h"><span class="kicker">${esc(j.code)}</span><h1>Editorial Board</h1><p>The editors set the journal's direction, handle manuscripts and uphold its standards of review. Every editor has agreed to serve, signs the <a href="/policies/editorial-independence/">ACRI Journals Editorial Agreement</a> and serves a fixed term. The board is reviewed at least once a year.</p></div>
   ${keys.map(r => `<section class="toc-sec"><h2>${esc(r)}</h2><div class="board" style="margin-top:18px">${groups[r].map(card).join('')}</div></section>`).join('') || '<p class="meta">The editorial board is being appointed.</p>'}
-  <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo().name)}${pubInfo().address ? ', ' + esc(pubInfo().address) : ''}${pubInfo().phone ? ' · Phone: ' + esc(pubInfo().phone) : ''}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
+  <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo().name)}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
   </div>` });
 }
 
@@ -624,12 +707,45 @@ function personPage(j, p) {
       ${p.address ? `<p class="pp-addr"><span class="lbl">Institutional address</span>${esc(p.address)}</p>` : ''}
       ${p.bio ? `<section><h2>Biography</h2><div class="prose pp-bio">${String(p.bio).split(/\n{2,}|\r?\n/).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('')}</div></section>` : ''}
       ${p.interests?.length ? `<section><h2>Research interests</h2><ul class="pp-tags">${p.interests.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>` : ''}
-      <section><h2>Editorial roles at ACRI Journals</h2><ul class="pp-roles">${serves.map(s => `<li><a href="${personUrl(s.j, s.q)}">${esc(s.q.role)}</a>, <a href="/journals/${s.j.slug}/"><i>${esc(s.j.name)}</i></a>${s.q.since ? ` <span class="meta">· since ${esc(s.q.since)}</span>` : ''}</li>`).join('')}</ul></section>
+      <section><h2>Roles at ACRI Journals</h2><ul class="pp-roles">${mgmtOf(p).map(m => `<li><a href="${mgmtUrl(m)}">${esc(m.role)}</a>, ACRI Journals management team</li>`).join('')}${serves.map(s => `<li><a href="${personUrl(s.j, s.q)}">${esc(s.q.role)}</a>, <a href="/journals/${s.j.slug}/"><i>${esc(s.j.name)}</i></a>${s.q.since ? ` <span class="meta">· since ${esc(s.q.since)}</span>` : ''}</li>`).join('')}</ul></section>
       ${arts.length ? `<section><h2>Articles in ACRI Journals</h2><div class="pp-arts">${arts.map(a => itemCard(a)).join('')}</div></section>` : ''}
       <p class="pp-note">Board members keep this page up to date through their AES profile. Peer-review and editorial work on individual manuscripts is confidential and is not listed. <a href="/journals/${j.slug}/editorial-board/">← Back to the editorial board</a></p>
     </div>
   </div></div>`;
   return layout({ j, title: `${plainOf(p)} · Editorial Board`, desc, canonical: BASE + canon, body, head: `<meta property="og:type" content="profile"><meta property="og:title" content="${esc(plainOf(p))}">${p.photo ? `<meta property="og:image" content="${esc(BASE + p.photo)}">` : ''}<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` });
+}
+
+// ---------------------------------------------------------------- management team
+const paras = (t) => String(t || '').split(/\n{2,}|\r?\n/).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('');
+const initials = (p) => esc(plainOf(p).split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase());
+function managementPage() {
+  const msgs = MGMT.filter(p => p.message);
+  const card = (p) => { const u = p.slug ? mgmtUrl(p) : ''; return `<div class="person mg${p.photo ? ' has-photo' : ''}">${p.photo ? `<img class="pph" src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" width="84" height="84">` : `<div class="pph pini">${initials(p)}</div>`}<span class="role">${esc(p.role)}</span><b>${u ? `<a class="pname" href="${u}">${esc(p.name)}</a>` : esc(p.name)}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}${p.affiliation ? `<span>${esc(p.affiliation)}</span>` : ''}${p.bio ? `<p class="pbio">${esc(short(p.bio, 220))}</p>` : ''}${u ? `<a class="pmore" href="${u}">View full profile →</a>` : ''}</div>`; };
+  const body = `<div class="wrap page"><div class="page-h"><span class="kicker">ACRI Journals</span><h1>Management</h1><p>The management team looks after ACRI Journals as a whole: its governance, operations, standards and growth. It appoints editors for fixed terms but takes no part in decisions on individual manuscripts, which belong to each journal's editors. See <a href="/policies/editorial-independence/">Editorial independence and governance</a>.</p></div>
+  ${msgs.map(p => `<section class="mg-msg"><span class="kicker">Message from the ${esc(p.role)}</span><div class="mg-msg-b prose">${paras(p.message)}</div><div class="mg-sig">${p.photo ? `<img src="${esc(p.photo)}" alt="" width="52" height="52">` : ''}<div><b>${esc(plainOf(p))}</b><span>${esc(p.role)}, ACRI Journals</span></div>${p.slug ? `<a href="${mgmtUrl(p)}">Profile →</a>` : ''}</div></section>`).join('')}
+  <section class="toc-sec"><h2>Management team</h2>${MGMT.length ? `<div class="board" style="margin-top:18px">${MGMT.map(card).join('')}</div>` : '<p class="meta" style="margin-top:14px">The management team is being appointed.</p>'}</section>
+  <section class="toc-sec"><h2>Editorial boards</h2><div class="board" style="margin-top:18px">${journals.map(j => `<a class="person" href="/journals/${j.slug}/editorial-board/" style="text-decoration:none;border-top:4px solid ${j.accent}"><span class="role" style="color:${j.accent}">${esc(j.code)}</span><b>${esc(j.name)}</b><span>Editorial board →</span></a>`).join('')}</div></section></div>`;
+  return layout({ title: 'Management', canonical: BASE + '/management/', desc: 'The management team of ACRI Journals.', body });
+}
+function mgmtPersonPage(p) {
+  const links = [['profile', p.profile], ['scholar', p.scholar], ['linkedin', p.linkedin], ['website', p.website]].filter(x => x[1]);
+  const pos = [p.designation && (p.designation + (p.department ? ', ' + p.department : '')), p.affiliation].filter(Boolean);
+  const serves = servesOf(p), arts = authoredBy(p);
+  const ld = { '@context': 'https://schema.org', '@type': 'ProfilePage', url: BASE + mgmtUrl(p), mainEntity: { '@type': 'Person', name: plainOf(p), jobTitle: p.role, worksFor: { '@type': 'Organization', name: site.name, url: BASE }, ...(p.photo ? { image: BASE + p.photo } : {}), ...(p.bio ? { description: short(p.bio, 300) } : {}), sameAs: [p.orcid && 'https://orcid.org/' + p.orcid, p.profile, p.scholar, p.linkedin, p.website].filter(Boolean) } };
+  const body = `<div class="wrap page"><nav class="crumbs"><a href="/">ACRI Journals</a> › <a href="/management/">Management</a> › <span>${esc(plainOf(p))}</span></nav>
+  <div class="pp"><aside class="pp-side">${p.photo ? `<img class="pp-ph" src="${esc(p.photo)}" alt="${esc(plainOf(p))}" width="240" height="240">` : `<div class="pp-ph pp-ini" aria-hidden="true">${initials(p)}</div>`}
+    ${p.orcid ? `<a class="orcidl pp-orcid" href="https://orcid.org/${esc(p.orcid)}" rel="noopener">${ORCID}${esc(p.orcid)}</a>` : ''}
+    ${links.length ? `<div class="pp-links">${links.map(([k, v]) => `<a href="${esc(v)}" rel="noopener">${ICONL[k]} ↗</a>`).join('')}</div>` : ''}
+    ${p.email ? `<a class="pp-mail" href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}</aside>
+  <div class="pp-main"><span class="kicker" style="color:var(--green)">${esc(p.role)} · ACRI Journals</span><h1>${esc(p.name)}</h1>
+    ${pos.length ? `<p class="pp-pos">${pos.map(esc).join('<br>')}</p>` : ''}
+    ${p.message ? `<section><h2>Message from the ${esc(p.role)}</h2><div class="prose pp-bio mg-quote">${paras(p.message)}</div></section>` : ''}
+    ${p.bio ? `<section><h2>Biography</h2><div class="prose pp-bio">${paras(p.bio)}</div></section>` : ''}
+    ${p.interests?.length ? `<section><h2>Interests</h2><ul class="pp-tags">${p.interests.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>` : ''}
+    <section><h2>Roles at ACRI Journals</h2><ul class="pp-roles"><li>${esc(p.role)}, ACRI Journals management team${p.since ? ` <span class="meta">· since ${esc(p.since)}</span>` : ''}</li>${serves.map(s => `<li><a href="${personUrl(s.j, s.q)}">${esc(s.q.role)}</a>, <a href="/journals/${s.j.slug}/"><i>${esc(s.j.name)}</i></a></li>`).join('')}</ul></section>
+    ${arts.length ? `<section><h2>Articles in ACRI Journals</h2><div class="pp-arts">${arts.map(a => itemCard(a)).join('')}</div></section>` : ''}
+    <p class="pp-note">The management team takes no part in decisions on individual manuscripts. <a href="/management/">← Back to Management</a></p></div></div></div>`;
+  return layout({ title: `${plainOf(p)} · ${p.role}`, desc: `${plainOf(p)}, ${p.role} of ACRI Journals.`, canonical: BASE + mgmtUrl(p), body, head: `<meta property="og:type" content="profile">${p.photo ? `<meta property="og:image" content="${esc(BASE + p.photo)}">` : ''}<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` });
 }
 
 function journalAbout(j) {
@@ -640,7 +756,7 @@ function journalAbout(j) {
   <div class="prose"><div class="jabout-logos"><div class="jl">${fullLogo(j)}</div><div class="ap">An ${MINIWM} publication</div></div><h1 style="font:600 34px/1.2 var(--serif);margin:18px 0 18px">About ${esc(j.name)}</h1>
   <h2 id="scope">Aims and scope</h2><p>${esc(j.scope)}</p><p><b>Subjects:</b> ${(j.subjects || []).map(esc).join(', ')}.</p><p><b>Article types:</b> ${(j.articleTypes || []).map(esc).join(', ')}.</p><p><b>Audience:</b> researchers, practitioners, educators and policymakers. ${esc(j.code)} is an ${esc(j.scopeType || 'international')} journal and welcomes submissions from authors in every country.</p>
   <h2 id="particulars">Journal particulars</h2><div class="rbox" style="font-family:var(--sans)">${particulars(j)}</div>
-  <h2 id="ownership">Ownership and management</h2><p>${esc(j.name)} is owned and published by <b>${esc(P.name)}</b>${P.address ? ', ' + esc(P.address) : ''}${P.web ? ` (<a href="${esc(P.web)}">${esc(P.web.replace('https://', ''))}</a>)` : ''}, and is published on the ACRI Journals platform, part of ACRIVERSE. ${j.school ? `It is affiliated with the ${esc(j.school)}. ` : ''}The publisher appoints the editors for fixed terms under a written agreement and does not take part in decisions on individual manuscripts. Editors are not paid according to the number of articles accepted. See <a href="/policies/editorial-independence/">Editorial independence and governance</a> and the <a href="editorial-board/">Editorial Board</a>.</p>
+  <h2 id="ownership">Ownership and management</h2><p>${esc(j.name)} is owned and published by <b>${esc(P.name)}</b>${P.web ? ` (<a href="${esc(P.web)}">${esc(P.web.replace('https://', ''))}</a>)` : ''}, and is published on the ACRI Journals platform, part of ACRIVERSE. ${j.school ? `It is affiliated with the ${esc(j.school)}. ` : ''}The publisher appoints the editors for fixed terms under a written agreement and does not take part in decisions on individual manuscripts. Editors are not paid according to the number of articles accepted. See <a href="/policies/editorial-independence/">Editorial independence and governance</a> and the <a href="editorial-board/">Editorial Board</a>.</p>
   <h2 id="review">Peer review</h2><p>${esc(j.code)} uses <b>double-blind peer review</b>. Neither authors nor reviewers learn each other's identities. Each research manuscript is first screened by the editorial office (completeness, anonymisation, similarity check) and by the Editor-in-Chief or a Senior Editor (scope and quality). Manuscripts may be declined at this stage without external review.</p>
   <p>Manuscripts that pass screening are sent to <b>at least two independent external experts</b>, chosen by the handling editor. Reviewers are never members of the editorial office. Reviewers are asked to report within 21 days, and the first decision usually comes within 6–8 weeks of submission. Supplementary material is reviewed along with the manuscript. Reviews are anonymous and are not published with the article.</p>
   <p>Reviewers must keep manuscripts confidential, must not contact the authors, may involve a colleague only with the editor's permission, and must not use generative AI to write or improve their reviews. Authors may suggest reviewers to widen the pool, but editors are not bound by these suggestions. Reviewers are assigned by editors, not by automated or AI tools.</p>
@@ -863,6 +979,8 @@ async function main() {
   page('/one/', onePage());
   page('/how-it-works/', howItWorksPage());
   page('/aes/', aesPage());
+  page('/management/', managementPage());
+  for (const p of MGMT) if (p.slug) page(mgmtUrl(p), mgmtPersonPage(p));
   // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
   const pageFiles = {};
   for (const dir of [path.join(ROOT, 'build', 'pages'), path.join(CONTENT, 'pages')])
@@ -877,7 +995,7 @@ async function main() {
     page(b + '/online-first/', onlineFirst(j));
     page(b + '/archive/', archivePage(j));
     page(b + '/editorial-board/', boardPage(j));
-    for (const p of boardOf(j)) if (p.slug) page(personUrl(j, p), personPage(j, p));
+    for (const p of boardOf(j)) if (p.slug && !(MGMT.length && p.group === 'Publisher & journal management')) page(personUrl(j, p), personPage(j, p));
     page(b + '/about/', journalAbout(j));
     page(b + '/for-authors/', journalAuthors(j));
     const iss = issuesOf(j);

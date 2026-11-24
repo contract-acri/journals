@@ -2,6 +2,7 @@
 
 // ------------------------------------------------------------ journals
 function journalRow_(slug) {
+  if (slug === NETWORK) return { slug: NETWORK, code: 'ACRI', name: 'ACRI Journals', accent: '#0B2545', network: true, officeEmail: controllerEmail_(), editorEmail: editorsEmail_(), noReplyEmail: 'no.reply@' + mailDomain_() };
   const c = CacheService.getScriptCache(), k = 'J:' + slug, hit = c.get(k);
   if (hit) return JSON.parse(hit);
   const r = find_('Journals', 'slug', slug);

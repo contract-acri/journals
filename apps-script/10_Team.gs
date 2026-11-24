@@ -12,11 +12,28 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
-      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean) }; });
+    .map(a => memberCard_(a, users[a.userId] || {}));
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
+/** What the website shows for one person (board or management). */
+function memberCard_(a, u) {
+  const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
+      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean), message: a.message || '' };
+}
+/** The ACRI Journals management team, in the order the admin sets. */
+function mgmtFor_() {
+  const users = {}; all_('Users').forEach(u => users[u.id] = u);
+  return activeAppointments_(NETWORK).filter(a => String(a.showOnSite) !== 'false')
+    .sort((a, b) => ((Number(a.order) || 99) - (Number(b.order) || 99)) || String(a.start).localeCompare(String(b.start)))
+    .map(a => Object.assign(memberCard_(a, users[a.userId] || {}), { group: 'Management team' }));
+}
+function syncMgmt_() {
+  const team = { updated: now_(), members: mgmtFor_() };
+  if (prop_('GITHUB_TOKEN')) try { ghCommit_([{ path: 'content/management.json', text: JSON.stringify(team, null, 2) }], 'Management team update'); } catch (e) { console.error(e); }
+  return team;
+}
 function syncBoard_(slug) {
+  if (slug === NETWORK) return syncMgmt_();
   const r = find_('Journals', 'slug', slug); if (!r) return;
   const json = Object.assign({}, r.json || {}); json.board = boardFor_(slug, json.boardExtra || []);
   update_('Journals', 'slug', slug, { json: json, updated: now_() });
@@ -26,6 +43,7 @@ function syncBoard_(slug) {
 
 // ------------------------------------------------------------ agreement text (versioned)
 function agreementHtml_(a, u, j) {
+  if (a.journal === NETWORK) return mgmtAgreementHtml_(a, u);
   const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
   const duties = {
     eic: 'set the editorial direction of the Journal; make final decisions on manuscripts on the basis of scholarly merit; appoint handling editors; ensure the integrity, timeliness and fairness of peer review; and represent the Journal',
@@ -69,7 +87,7 @@ function certificateHtml_(a, u, j) {
 }
 
 // ------------------------------------------------------------ admin / EIC actions
-function canAppoint_(u, journal, role) { return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
+function canAppoint_(u, journal, role) { if (journal === NETWORK || role === 'mgmt') return isAdmin_(u); return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
 
 function team_list(p, u) {
   need_(isAdmin_(u) || (p.journal && isEic_(u, p.journal)), 'Not allowed.');
@@ -77,13 +95,15 @@ function team_list(p, u) {
   const items = all_('Appointments').filter(a => !p.journal || a.journal === p.journal).map(a => {
     const x = users[a.userId] || {};
     return { id: a.id, journal: a.journal, role: a.role, roleLabel: roleLabel_(a), title: a.title, start: String(a.start).slice(0, 10), end: String(a.end).slice(0, 10), status: a.status, signedAt: a.signedAt, signedName: a.signedName, showOnSite: String(a.showOnSite) !== 'false', order: a.order,
-      name: (x.given + ' ' + x.family).trim() || x.email, email: x.email, affiliation: x.affiliation, link: a.status === 'pending' ? portalUrl_('agreement?token=' + a.token) : '', expires: a.expires || '', agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason };
+      name: (x.given + ' ' + x.family).trim() || x.email, email: x.email, affiliation: x.affiliation, link: a.status === 'pending' ? portalUrl_('agreement?token=' + a.token) : '', expires: a.expires || '', agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason, message: a.message || '' };
   }).sort((a, b) => a.journal.localeCompare(b.journal) || ROLES[a.role].rank - ROLES[b.role].rank || String(b.start).localeCompare(String(a.start)));
   return { ok: true, items: items, roles: ROLES };
 }
 
 function team_appoint(p, u) {
   need_(ROLES[p.role], 'Choose a role.');
+  need_((p.journal === NETWORK) === (p.role === 'mgmt'), p.journal === NETWORK ? 'The management team uses the role "Management team".' : 'Choose an editorial role for a journal.');
+  if (p.role === 'mgmt') need_(String(p.title || '').trim(), 'Enter the title shown on the website, e.g. Chairperson, Managing Director or Head of Operations.');
   need_(canAppoint_(u, p.journal, p.role), 'Only an admin can appoint an Editor-in-Chief. EICs can appoint other roles in their journal.');
   need_(p.start && p.end && p.end > p.start, 'Enter a valid term (start and end dates).');
   const j = journalRow_(p.journal), email = normEmail_(p.email);
@@ -107,7 +127,7 @@ function team_appoint(p, u) {
 }
 function sendAppointment_(a, x, j, setPw) {
   const exp = a.expires ? Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy, h:mm a') + ' IST' : '';
-  mailTemplate_('appoint', x.email, { name: x.given || 'Colleague', role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
+  mailTemplate_('appoint', x.email, { name: x.given || 'Colleague', role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp, existing: !!x.passHash, mgmt: a.journal === NETWORK }, { journal: a.journal === NETWORK ? '' : a.journal });
 }
 function team_resend(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
@@ -123,6 +143,7 @@ function team_update(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
   const patch = {};
   ['title', 'order'].forEach(k => { if (p[k] !== undefined) patch[k] = p[k]; });
+  if (p.message !== undefined) { need_(isAdmin_(u), 'Only an admin can edit a message.'); patch.message = String(p.message).trim().slice(0, 6000); }
   if (p.showOnSite !== undefined) patch.showOnSite = !!p.showOnSite;
   if (p.end && a.status === 'pending') patch.end = p.end;
   update_('Appointments', 'id', a.id, patch);
@@ -172,7 +193,7 @@ function appt_(token) {
 }
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+  return { ok: true, agreement: { mgmt: a.journal === NETWORK, status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
     profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
@@ -195,7 +216,8 @@ function agreement_sign(p) {
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
-  if (p.profile) {
+  if (p.profile && a.journal === NETWORK) need_(prof.designation, 'Please enter your designation, as it should appear on the management page.');
+  else if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
     if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
@@ -251,7 +273,7 @@ function termsTick() {
 
 // ------------------------------------------------------------ email templates for the team
 Object.assign(TEMPLATES, {
-  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
+  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : d.existing ? 'Invitation: join' : 'Your'} ${d.existing && !d.renewal ? d.journal + ' as ' + d.role : 'appointment as ' + d.role + ', ' + d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b>${d.mgmt ? ' (the management team of the ACRI Journals network)' : ''} for the term <b>${d.start} to ${d.end}</b>.</p>${d.existing && !d.renewal ? `<p>You already have an ACRI One account, so your details are filled in for you: just check them and sign in with your usual password. This appointment is in addition to any role you already hold.</p>` : ''}<p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
   appoint_signed: d => [`Welcome: your appointment as ${d.role} is active`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for signing the Editorial Agreement. Your appointment as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> is now active, from ${d.start} to ${d.end}.</p><p>A signed copy of the agreement is attached. Your editorial tools are available in the portal.</p>${btn_(d.link, 'Open the editorial portal')}<p>Welcome to the team.</p>`],
   appoint_declined: d => [`Appointment declined: ${d.who} (${d.role})`, `<p>${esc_(d.who)} has declined the appointment as ${esc_(d.role)} of ${esc_(d.journal)}.</p>${d.reason ? quote_(d.reason) : ''}`],
   term_reminder: d => [`Your term as ${d.role} ends on ${d.end}`, `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> ends on <b>${d.end}</b> (${d.days} days from now).</p>${d.renewed ? '<p>A renewal has already been arranged. Please make sure you have signed the new agreement.</p>' : '<p>If you would like to continue, please reply to this email. The editorial office can send you a renewal. Otherwise, please hand over any manuscripts you are handling before your term ends.</p>'}<p>Thank you for your service to the journal.</p>`],
@@ -281,4 +303,22 @@ function pageLinks_(p) {
   if (p.showEmail !== undefined) out.showEmail = !!p.showEmail;
   if (p.pageOff !== undefined) out.pageOff = !!p.pageOff;
   return out;
+}
+
+// ------------------------------------------------------------ management team agreement
+function mgmtAgreementHtml_(a, u) {
+  const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
+  return `<h1 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">ACRI Journals Management Appointment</h1>
+<p style="color:#5E6875;margin:0 0 18px">Version ${AGREEMENT_VERSION} · ACRI Journals management team</p>
+<p>This Agreement is between <b>ACRI Journals</b>, operated by ${CFG.LEGAL_ENTITY} ("ACRI Journals"), and <b>${esc_(name)}</b> ("you"). It sets out the terms of your appointment as <b>${esc_(role)}</b> of ACRI Journals.</p>
+<h3>1. Appointment and term</h3><p>You are appointed ${esc_(role)} from <b>${fmtD_(a.start)}</b> to <b>${fmtD_(a.end)}</b>. The appointment takes effect when you sign this Agreement and may be renewed by mutual agreement.</p>
+<h3>2. Responsibilities</h3><p>You will support the management, operations, governance and development of ACRI Journals in the role described above, in line with the ACRI Journals <a href="${siteUrl_()}/policies/">policies</a> and the COPE Core Practices.</p>
+<h3>3. Editorial independence</h3><p>The management team does not take part in decisions on individual manuscripts. You will not seek to influence the review or acceptance of any manuscript, and you will refer any concern about a manuscript to the journal's Editor-in-Chief.</p>
+<h3>4. Confidentiality</h3><p>You will keep confidential any non-public information about manuscripts, authors, reviewers, editors, finances and operations that you learn in this role. This continues after your term ends.</p>
+<h3>5. Conflicts of interest</h3><p>You will declare any interest that could affect, or appear to affect, your judgement, and step aside from any matter in which you have such an interest.</p>
+<h3>6. Data protection</h3><p>You will handle personal data only for ACRI Journals purposes, in line with the <a href="${siteUrl_()}/policies/privacy/">Privacy Policy</a> and India's Digital Personal Data Protection Act, 2023. You consent to your name, title, designation, photo, biography and profile links being published on the ACRI Journals management page.</p>
+<h3>7. Representation</h3><p>You may describe your role publicly. You will speak on behalf of ACRI Journals only within the authority of your role.</p>
+<h3>8. Ending the appointment</h3><p>Either party may end the appointment with 30 days' written notice. ACRI Journals may end it immediately for a serious breach, after giving you an opportunity to respond. Sections 3, 4 and 6 continue after the appointment ends.</p>
+<h3>9. Governing law</h3><p>This Agreement is governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat.</p>
+<h3>10. Electronic signature</h3><p>By typing your full name and selecting "I agree and sign", you sign this Agreement electronically, and the signature has the same effect as a handwritten one.</p>`;
 }

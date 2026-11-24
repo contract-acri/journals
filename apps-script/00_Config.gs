@@ -57,7 +57,7 @@ const SCHEMA = {
   Issues: ['journal', 'volume', 'issue', 'year', 'label', 'title', 'status', 'pdf'],
   Subscribers: ['email', 'status', 'token', 'journals', 'created'],
   EmailLog: ['ts', 'to', 'subject', 'status', 'detail'],
-  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer'],
+  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer', 'message'],
   Contacts: ['email', 'name', 'list', 'status', 'token', 'source', 'consent', 'tags', 'created', 'updated', 'lastSent', 'sentCount'],
   Campaigns: ['id', 'journal', 'name', 'subject', 'preheader', 'preset', 'content', 'sender', 'audience', 'status', 'scheduledAt', 'createdBy', 'created', 'updated', 'stats', 'sentAt'],
   Queue: ['id', 'campaignId', 'email', 'name', 'token', 'status', 'error', 'ts'],
@@ -101,7 +101,10 @@ const ROLES = {
   senior: { label: 'Senior Editor', plural: 'Senior Editors', rank: 2 },
   editor: { label: 'Editor', plural: 'Editors', rank: 3 },
   board: { label: 'Editorial Board Member', plural: 'Editorial Board', rank: 4 },
+  mgmt: { label: 'Management Team', plural: 'Management team', rank: 0 },
 };
+/** The ACRI Journals management team is kept as appointments to this pseudo-journal. It gives no editorial rights. */
+const NETWORK = '_network';
 const AGREEMENT_VERSION = '1.0';
 
 const FILE_KINDS = {

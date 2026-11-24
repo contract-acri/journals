@@ -73,6 +73,7 @@
   const eicOf = () => S.user?.roles?.eic || [];
   const FREQ = ['Monthly', 'Bi-monthly', 'Quarterly', 'Triannual', 'Biannual', 'Annual', 'Continuous publication'];
   const ROLE_LABEL = { eic: 'Editor-in-Chief', senior: 'Senior Editor', editor: 'Editor', board: 'Editorial Board Member' };
+  const NET = '_network';
 
   // ---------------------------------------------------------------- nav + router
   function nav() {
@@ -514,7 +515,7 @@
   async function vAdmin(tab, q) {
     const adm = isAdmin();
     if (!adm && !eicOf().length) return go('');
-    const T = adm ? [['overview', 'Overview'], ['manuscripts', 'Manuscripts'], ['team', 'Editorial team'], ['journals', 'Journals'], ['issues', 'Issues'], ['backissues', 'Back issues'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns'], ['messages', 'Messages'], ['letters', 'Letters & email'], ['partners', 'Partners'], ['users', 'People'], ['settings', 'Settings']]
+    const T = adm ? [['overview', 'Overview'], ['manuscripts', 'Manuscripts'], ['import', 'Import submission'], ['team', 'Editorial team'], ['journals', 'Journals'], ['issues', 'Issues'], ['backissues', 'Back issues'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns'], ['messages', 'Messages'], ['letters', 'Letters & email'], ['partners', 'Partners'], ['users', 'People'], ['settings', 'Settings']]
       : [['messages', 'Messages'], ['team', 'Editorial team'], ['indexing', 'ISSN & indexing'], ['email', 'Email & campaigns']];
     if (!T.some(t => t[0] === tab)) tab = T[0][0];
     app.innerHTML = `<div class="page-h"><span class="kicker">${adm ? 'Administration' : 'Journal administration'}</span><h1 style="font:600 30px var(--serif);margin:6px 0 0">ACRI Journals admin</h1></div><div class="panel"><div class="tabs">${T.map(([k, l]) => `<button data-at="${k}" class="${k === tab ? 'on' : ''}">${l}</button>`).join('')}</div><div id="adm"><div class="loading">Loading…</div></div></div>`;
@@ -522,8 +523,51 @@
     const box = $('#adm');
     const J = adm ? (await api('adm.journals')).items : (await api('public.journals')).journals.filter(j => eicOf().includes(j.slug));
     const jsel = (name, val, withNet) => `<select name="${name}" class="inp" style="width:auto">${withNet ? `<option value="network" ${val === 'network' ? 'selected' : ''}>All journals (network)</option>` : ''}${J.map(j => `<option value="${j.slug}" ${val === j.slug ? 'selected' : ''}>${esc(j.code)}</option>`).join('')}</select>`;
-    const T2 = { overview: tOverview, manuscripts: tManuscripts, users: tUsers, team: tTeam, journals: tJournals, issues: tIssues, backissues: tBack, email: tEmail, partners: tPartners, indexing: tIndexing, messages: tMessages, settings: tSettings, letters: tLetters };
+    const T2 = { overview: tOverview, manuscripts: tManuscripts, users: tUsers, team: tTeam, journals: tJournals, issues: tIssues, backissues: tBack, email: tEmail, partners: tPartners, indexing: tIndexing, messages: tMessages, settings: tSettings, letters: tLetters, import: tImport };
     await T2[tab](box, q, J, jsel);
+  }
+
+  // ---------- import a submission received outside AES (e.g. the old Google Form)
+  async function tImport(box, q, J) {
+    const types = ['Research Article', 'Review Article', 'Case Study', 'Short Communication', 'Perspective', 'Book Review', 'Editorial'];
+    const arow = (i) => `<tr data-au="${i}"><td><input class="inp" data-k="given" placeholder="First name(s)"></td><td><input class="inp" data-k="family" placeholder="Last name"></td><td><input class="inp" data-k="email" type="email" placeholder="Email"></td><td><input class="inp" data-k="affiliationName" placeholder="Institution"></td><td style="text-align:center"><input type="radio" name="corr" data-k="corr" ${i ? '' : 'checked'}></td></tr>`;
+    box.innerHTML = `<div class="msg info">Use this for manuscripts that reached us outside the portal, such as through the old Google Form. The paper joins the editorial queue as <b>Submitted</b> with its own manuscript ID and its <b>original date of receipt</b>. The corresponding author gets an ACRI One account (if they do not have one) and an email explaining the move. Nothing needs to be resubmitted.</div>
+      <form id="imp" class="rev">
+      <div class="f"><label>Quick fill: paste the author's row from the Google Form responses sheet</label><textarea id="row" class="inp" rows="3" style="font-family:monospace;font-size:12px" placeholder="Select the whole row in Google Sheets, copy (Ctrl/Cmd+C) and paste it here"></textarea><button type="button" class="btn btn-ghost" id="fill" style="margin-top:6px">Fill the form from this row</button> <span class="meta" id="fillm"></span></div>
+      <div class="row3"><div class="f"><label>Journal *</label><select name="journal" class="inp">${J.map(j => `<option value="${j.slug}">${esc(j.code)}: ${esc(j.name)}</option>`).join('')}</select></div><div class="f"><label>Date received *</label><input type="date" name="received" class="inp" required></div><div class="f"><label>Article type</label><select name="type" class="inp">${types.map(t => `<option>${t}</option>`).join('')}</select></div></div>
+      <div class="f"><label>Title *</label><input name="title" class="inp" required></div>
+      <div class="f"><label>Abstract *</label><textarea name="abstract" class="inp" rows="8" required></textarea></div>
+      <div class="row2"><div class="f"><label>Keywords <small>(separate with semicolons)</small></label><input name="keywords" class="inp"></div><div class="f"><label>Subject area</label><input name="subject" class="inp"></div></div>
+      <div class="f"><label>Authors <small>(choose the corresponding author on the right)</small></label><table class="list"><thead><tr><th>First name(s)</th><th>Last name</th><th>Email</th><th>Institution</th><th>Corr.</th></tr></thead><tbody id="aus">${[0, 1, 2].map(arow).join('')}</tbody></table><button type="button" class="mini" id="addau" style="margin-top:6px">+ Add author</button></div>
+      <div class="row2"><div class="f"><label>Received through</label><input name="source" class="inp" value="Google Form"></div><div class="f"><label>Link to the original file (for the record)</label><input name="originalLink" class="inp" placeholder="https://drive.google.com/…"></div></div>
+      <div class="f"><label>Note from the author / cover letter</label><textarea name="coverLetter" class="inp" rows="3"></textarea></div>
+      <div class="row2"><div class="f"><label>Manuscript * <small>(.docx or .pdf; ideally without author names)</small></label><input type="file" id="msf" accept=".docx,.pdf" class="inp" required></div><div class="f"><label>Title page <small>(optional, .docx with author details)</small></label><input type="file" id="tpf" accept=".docx" class="inp"></div></div>
+      <label class="chk"><input type="checkbox" name="notify" checked> Email the corresponding author that the submission has moved to the portal (with a link to set a password if they are new)</label>
+      <label class="chk"><input type="checkbox" name="force"> Import anyway if a submission with the same title exists</label>
+      <button class="btn btn-primary">Import submission</button></form><div id="impr" style="margin-top:14px"></div>`;
+    let n = 3; $('#addau').onclick = () => { $('#aus').insertAdjacentHTML('beforeend', arow(n++)); };
+    const F = $('#imp').elements;
+    const splitName = (s) => { s = String(s || '').replace(/^(dr|prof|mr|ms|mrs|shri|smt)\.?\s+/i, '').trim(); const w = s.split(/\s+/); return w.length > 1 ? [w.slice(0, -1).join(' '), w[w.length - 1]] : [s, '']; };
+    const titleCase = (t) => t === t.toUpperCase() ? t.toLowerCase().replace(/(^|[\s:(\-–"'‘“])([a-z])/g, (m, a, b) => a + b.toUpperCase()).replace(/\s(A|An|And|As|At|But|By|For|In|Of|On|Or|The|To|Via|With)(?=\s)/g, (m) => m.toLowerCase()).replace(/(:\s+)([a-z])/g, (m, a, b) => a + b.toUpperCase()) : t;
+    $('#fill').onclick = () => {
+      const c = $('#row').value.replace(/\r?\n$/, '').split('\t');
+      if (c.length < 12) { $('#fillm').textContent = 'That does not look like a full row. Copy the row directly from Google Sheets so the columns stay separate.'; return; }
+      const [ts, email, , name, , inst, instEmail, , coNames, coInst, title, abstract, kw, subj, , atype, , link] = c;
+      const m = String(ts).match(/(\d+)\/(\d+)\/(\d{4})/); if (m) F.received.value = `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+      F.title.value = titleCase(String(title || '').trim()); F.abstract.value = String(abstract || '').trim(); F.keywords.value = kw || ''; F.subject.value = subj || ''; F.originalLink.value = link || '';
+      const t = types.find(x => x.toLowerCase() === String(atype || '').trim().toLowerCase()); if (t) F.type.value = t;
+      const people = [{ name, email: instEmail || email, inst }].concat(String(coNames || '').split(/\s*(?:;|,|\band\b|&)\s*/).filter(Boolean).map((nm, i) => ({ name: nm, email: '', inst: (String(coInst || '').split(/\s*;\s*/)[i] || coInst || '') })));
+      while ($$('#aus tr').length < people.length) $('#aus').insertAdjacentHTML('beforeend', arow(n++));
+      $$('#aus tr').forEach((tr, i) => { const p2 = people[i] || {}; const [g, f] = splitName(p2.name); $('[data-k=given]', tr).value = g || ''; $('[data-k=family]', tr).value = f || ''; $('[data-k=email]', tr).value = p2.email || ''; $('[data-k=affiliationName]', tr).value = p2.inst || ''; });
+      $('#fillm').textContent = 'Filled. Please check every field, add any missing co-author emails, and choose the manuscript file.';
+    };
+    $('#imp').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => {
+      const ms = $('#msf').files[0], tp = $('#tpf').files[0]; if (!ms) throw new Error('Choose the manuscript file.');
+      const authors = $$('#aus tr').map(tr => ({ given: $('[data-k=given]', tr).value.trim(), family: $('[data-k=family]', tr).value.trim(), email: $('[data-k=email]', tr).value.trim(), affiliationName: $('[data-k=affiliationName]', tr).value.trim(), corresponding: $('[data-k=corr]', tr).checked })).filter(a => a.given || a.family);
+      const r = await api('adm.importSub', { sub: { journal: F.journal.value, received: F.received.value, type: F.type.value, title: F.title.value, abstract: F.abstract.value, keywords: F.keywords.value.split(/\s*;\s*/).filter(Boolean), subject: F.subject.value ? [F.subject.value] : [], authors, source: F.source.value, originalLink: F.originalLink.value, coverLetter: F.coverLetter.value },
+        file: { name: ms.name, mime: ms.type, data: await fileToB64(ms) }, titlepage: tp ? { name: tp.name, mime: tp.type, data: await fileToB64(tp) } : null, notify: F.notify.checked, force: F.force.checked });
+      $('#impr').innerHTML = `<div class="msg ok">${esc(r.message)} <a href="#/ms/${esc(r.id)}">Open ${esc(r.id)} →</a></div>`; $('#imp').reset(); toast(r.message);
+    }); };
   }
 
   async function tOverview(box) {
@@ -556,19 +600,49 @@
   }
 
   // ---------- editorial team
+  // Invite an existing member to another journal (or the same journal in another role). Only the email is reused.
+  function inviteElsewhere(btn, a) {
+    const tr = btn.closest('tr'); $$('.invrow').forEach(x => x.remove());
+    const today = new Date().toISOString().slice(0, 10), plus2 = new Date(Date.now() + 2 * 365 * 864e5).toISOString().slice(0, 10);
+    const J = S.J || [];
+    const row = document.createElement('tr'); row.className = 'invrow';
+    row.innerHTML = `<td colspan="5" style="background:#F6F8FA"><form class="rev" style="margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end">
+      <div class="f" style="margin:0"><label>Invite ${esc(a.name)} to</label><select name="journal" class="inp">${J.filter(j => !(j.slug === a.journal)).map(j => `<option value="${j.slug}">${esc(j.code)}</option>`).join('')}${J.map(j => j.slug).includes(a.journal) ? `<option value="${a.journal}">${esc((J.find(j => j.slug === a.journal) || {}).code)} (another role)</option>` : ''}${S.user?.roles?.admin && a.journal !== NET ? `<option value="${NET}">Management team</option>` : ''}</select></div>
+      <div class="f" style="margin:0"><label>As</label><select name="role" class="inp">${Object.entries(ROLE_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div class="f" style="margin:0"><label>Title (optional)</label><input name="title" class="inp"></div>
+      <div class="f" style="margin:0"><label>Term</label><div style="display:flex;gap:4px"><input type="date" name="start" class="inp" value="${today}"><input type="date" name="end" class="inp" value="${plus2}"></div></div>
+      <div style="display:flex;gap:6px"><button class="btn btn-primary">Send invitation</button><button type="button" class="btn btn-ghost" data-x>Cancel</button></div></form>
+      <p class="meta" style="margin:8px 0 0">${esc(a.email)} receives a personal link. Their details are already filled in; they only check them and sign. Their current role is not affected.</p></td>`;
+    tr.after(row);
+    const f = $('form', row);
+    f.journal.onchange = () => { const net = f.journal.value === NET; f.role.innerHTML = net ? '<option value="mgmt">Management team</option>' : Object.entries(ROLE_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join(''); f.title.placeholder = net ? 'e.g. Chairperson (required)' : ''; };
+    $('[data-x]', row).onclick = () => row.remove();
+    f.onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { await api('team.appoint', { journal: f.journal.value, role: f.role.value, title: f.title.value, email: a.email, start: f.start.value, end: f.end.value, showOnSite: true, days: 7 }); toast('Invitation sent to ' + a.email + '.'); row.remove(); }); };
+  }
+  function editMessage(btn, a) {
+    const tr = btn.closest('tr'); $$('.invrow').forEach(x => x.remove());
+    const row = document.createElement('tr'); row.className = 'invrow';
+    row.innerHTML = `<td colspan="5" style="background:#F6F8FA"><form class="rev" style="margin:0"><div class="f"><label>Message from ${esc(a.name)} (${esc(a.roleLabel)})</label><textarea name="message" class="inp" rows="9" placeholder="Leave a blank line between paragraphs. Leave empty to show no message.">${esc(a.message || '')}</textarea><div class="meta">Shown on the Management page as "Message from the ${esc(a.roleLabel)}", and on ${esc(a.name)}'s profile page.</div></div><div style="display:flex;gap:6px"><button class="btn btn-primary">Save and publish</button><button type="button" class="btn btn-ghost" data-x>Cancel</button></div></form></td>`;
+    tr.after(row); $('[data-x]', row).onclick = () => row.remove();
+    $('form', row).onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { await api('team.update', { id: a.id, message: e.target.message.value }); toast('Message saved. The website updates in a few minutes.'); vAdmin('team', { j: NET }); }); };
+  }
   async function tTeam(box, q, J, jsel) {
+    S.J = J;
     const cur = q.j || J[0]?.slug;
     const r = await api('team.list', { journal: cur });
     const today = new Date().toISOString().slice(0, 10), plus2 = new Date(Date.now() + 2 * 365 * 864e5).toISOString().slice(0, 10);
     const rows = r.items.filter(a => a.journal === cur);
     const sc = { pending: 'proof', active: 'published', ended: 'draft', declined: 'rejected', revoked: 'rejected', withdrawn: 'draft' };
-    box.innerHTML = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px"><b>Journal</b> ${jsel('j', cur)}</div>
-      <div class="msg info">Every appointment is for a fixed term. The person receives the Editorial Agreement by email and must sign it before their editorial access starts. Reminders go out 30 and 7 days before the term ends. When it ends, access closes automatically and a certificate of service is emailed to them. The website's editorial board updates on its own.</div>
+    const isNet = cur === NET;
+    const jpick = `<select name="j" class="inp" style="width:auto">${J.map(j => `<option value="${j.slug}" ${cur === j.slug ? 'selected' : ''}>${esc(j.code)}: ${esc(j.name)}</option>`).join('')}${adm ? `<option value="${NET}" ${isNet ? 'selected' : ''}>ACRI Journals: Management team</option>` : ''}</select>`;
+    box.innerHTML = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:16px"><b>Team</b> ${jpick}</div>
+      ${isNet ? `<div class="msg info">The <b>management team</b> runs ACRI Journals as a whole. They are not editors and take no part in decisions on manuscripts. Each member gets a personal link to add their own photo, biography and details, signs a short management appointment, and appears on the <a href="/management/" target="_blank">Management</a> page with their own profile page. Use <b>Message</b> to publish a message from a member (for example, a message from the President) on that page.</div>` : ''}
+      <div class="msg info" ${isNet ? 'hidden' : ''}>Every appointment is for a fixed term. The person receives the Editorial Agreement by email and must sign it before their editorial access starts. Reminders go out 30 and 7 days before the term ends. When it ends, access closes automatically and a certificate of service is emailed to them. The website's editorial board updates on its own.</div>
       <table class="list"><thead><tr><th>Name</th><th>Role</th><th>Term</th><th>Status</th><th></th></tr></thead><tbody>${rows.map(a => `<tr data-a="${a.id}"><td><b>${esc(a.name)}</b><div class="meta">${esc(a.email)} · ${esc(a.affiliation || '')}</div></td><td>${esc(a.roleLabel)}${a.title ? `<div class="meta">${esc(ROLE_LABEL[a.role])}</div>` : ''}</td><td class="meta">${esc(a.start)} → ${esc(a.end)}</td>
         <td>${st(sc[a.status] || 'draft', a.status)}${a.signedAt ? `<div class="meta">signed ${fmt(a.signedAt)}</div>` : ''}${a.endReason ? `<div class="meta">${esc(a.endReason)}</div>` : ''}</td>
-        <td style="white-space:nowrap">${a.status === 'pending' ? `${a.link ? `<button class="mini" data-copy="${esc(a.link)}">Copy link</button> <a class="mini" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Please confirm your details and join the editorial board of ' + (J.find(j => j.slug === a.journal)?.name || '') + ': ' + a.link)}">WhatsApp</a> ` : ''}<button class="mini" data-op="resend">Resend</button> <button class="mini danger" data-op="withdraw">Withdraw</button>${a.expires ? `<div class="meta">link valid until ${fmt(a.expires)}</div>` : ''}` : ''}${a.status === 'active' ? `<button class="mini" data-op="renew">Renew</button> <button class="mini" data-op="site">${a.showOnSite ? 'Hide' : 'Show'} on site</button> <button class="mini danger" data-op="end">End</button>` : ''}${adm && a.agreementFileId ? ` <button class="mini" data-file="${a.agreementFileId}">Agreement</button>` : ''}${adm && a.certificateFileId ? ` <button class="mini" data-file="${a.certificateFileId}">Certificate</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No appointments yet.</td></tr>'}</tbody></table>
-      <h3 style="margin-top:28px">Appoint an editor</h3><form id="apf" class="rev">
-      <div class="row3"><div class="f"><label>Role</label><select name="role">${Object.entries(ROLE_LABEL).filter(([k]) => adm || k !== 'eic').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div><div class="f"><label>Title shown (optional)</label><input name="title" placeholder="e.g. Associate Editor, Section Editor — Finance"></div><div class="f"><label>Email</label><input name="email" type="email" required></div></div>
+        <td style="white-space:nowrap">${a.status === 'pending' ? `${a.link ? `<button class="mini" data-copy="${esc(a.link)}">Copy link</button> <a class="mini" target="_blank" href="https://wa.me/?text=${encodeURIComponent('Please confirm your details and join the editorial board of ' + (J.find(j => j.slug === a.journal)?.name || '') + ': ' + a.link)}">WhatsApp</a> ` : ''}<button class="mini" data-op="resend">Resend</button> <button class="mini danger" data-op="withdraw">Withdraw</button>${a.expires ? `<div class="meta">link valid until ${fmt(a.expires)}</div>` : ''}` : ''}${['active', 'pending'].includes(a.status) ? `<button class="mini" data-op="invite" title="Invite this person to another journal or role">Invite elsewhere</button> ` : ''}${isNet && a.status === 'active' ? `<button class="mini" data-op="message">Message</button> <button class="mini" data-op="order">Order</button> ` : ''}${a.status === 'active' ? `<button class="mini" data-op="renew">Renew</button> <button class="mini" data-op="site">${a.showOnSite ? 'Hide' : 'Show'} on site</button> <button class="mini danger" data-op="end">End</button>` : ''}${adm && a.agreementFileId ? ` <button class="mini" data-file="${a.agreementFileId}">Agreement</button>` : ''}${adm && a.certificateFileId ? ` <button class="mini" data-file="${a.certificateFileId}">Certificate</button>` : ''}</td></tr>`).join('') || '<tr><td colspan="5" class="empty">No appointments yet.</td></tr>'}</tbody></table>
+      <h3 style="margin-top:28px">${isNet ? 'Add someone to the management team' : 'Appoint or invite someone'}</h3><p class="meta" style="margin-top:-6px">Enter just an email and a role. It works for new people and for anyone already in ACRI Journals: an existing board member of another journal is simply invited to this one as well, with their details already filled in.</p><form id="apf" class="rev">
+      <div class="row3"><div class="f"><label>Role</label><select name="role">${isNet ? '<option value="mgmt">Management team</option>' : Object.entries(ROLE_LABEL).filter(([k]) => adm || k !== 'eic').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div><div class="f"><label>Title shown ${isNet ? '*' : '(optional)'}</label><input name="title" ${isNet ? 'required' : ''} placeholder="${isNet ? 'e.g. Chairperson, President, Managing Director' : 'e.g. Associate Editor, Section Editor — Finance'}"></div><div class="f"><label>Email</label><input name="email" type="email" required></div></div>
       <div class="row3"><div class="f"><label>First name</label><input name="given"></div><div class="f"><label>Last name</label><input name="family"></div><div class="f"><label>Degrees</label><input name="degrees" placeholder="PhD"></div></div>
       <div class="row3"><div class="f"><label>Designation</label><input name="designation" placeholder="e.g. Professor"></div><div class="f"><label>Department</label><input name="department"></div><div class="f"><label>Country</label><input name="country" value="India"></div></div>
       <div class="row2"><div class="f"><label>Institutional email (not Gmail/Yahoo)</label><input name="instEmail" type="email"></div><div class="f"><label>Institutional profile link</label><input name="profileUrl" type="url" placeholder="https://university.edu/faculty/…"></div></div>
@@ -576,14 +650,14 @@
       <p class="meta" style="margin-top:-4px">ISSN India and indexing services need these details on the board page for every member: designation, institution, full address, institutional email and profile link.</p>
       <div class="row3"><div class="f"><label>Institution</label><input name="affiliation"></div><div class="f"><label>Term starts</label><input name="start" type="date" value="${today}"></div><div class="f"><label>Term ends</label><input name="end" type="date" value="${plus2}"></div></div>
       <div class="row3"><div class="f"><label>Link valid for</label><select name="days">${[[1, '24 hours'], [3, '3 days'], [7, '7 days'], [14, '14 days'], [30, '30 days']].map(([d, l]) => `<option value="${d}" ${d === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>
-      <label class="chk"><input type="checkbox" name="show" checked> Show on the journal's editorial board page once signed</label><p class="meta"><b>Only the email and role are required.</b> The person fills in their own name, photo, designation, institution, address, profile link and reviewing preferences from their personal link. Anything you enter here is pre-filled for them to check.</p>
+      <label class="chk"><input type="checkbox" name="show" checked> Show on the ${isNet ? 'management' : "journal's editorial board"} page once signed</label><p class="meta"><b>Only the email and role are required.</b> The person fills in their own name, photo, designation, institution, address, profile link and reviewing preferences from their personal link. Anything you enter here is pre-filled for them to check.</p>
       <button class="btn btn-primary">Send appointment & agreement</button></form>
-      <h3 style="margin-top:32px">Bring across your existing editorial board</h3>
+      <div ${isNet ? 'hidden' : ''}><h3 style="margin-top:32px">Bring across your existing editorial board</h3>
       <p class="meta">Paste one row per member, with this header row first. Each person gets a personal link to confirm their details, set their reviewing preferences and password, and sign the agreement. Their membership starts when they sign. <b>role</b> is eic, senior, editor or board.</p>
       <form id="imf"><textarea name="csv" class="inp" rows="7" style="font-family:monospace;font-size:12.5px">role,title,given,family,email,degrees,designation,department,affiliation,instAddress,instEmail,profileUrl,country,orcid,start,end
 board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Management,Gujarat University,"Navrangpura, Ahmedabad 380009, India",asha.mehta@university.edu,https://university.edu/faculty/asha-mehta,India,,${today},${plus2}</textarea>
       <div style="display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap"><label>Links valid for <select name="days">${[[1, '24 hours'], [3, '3 days'], [7, '7 days'], [14, '14 days']].map(([d, l]) => `<option value="${d}" ${d === 7 ? 'selected' : ''}>${l}</option>`).join('')}</select></label><button class="btn btn-primary">Send links to all</button></div><div id="imr" style="margin-top:10px"></div></form>
-      <h3 style="margin-top:32px">Recommendations from the board</h3><div id="recs"><div class="loading">Loading…</div></div>`;
+      <h3 style="margin-top:32px">Recommendations from the board</h3><div id="recs"><div class="loading">Loading…</div></div></div>`;
     $('#imf').onsubmit = (e) => { e.preventDefault(); const f = e.target; run(e.submitter, async () => { const r2 = await api('team.import', { journal: cur, csv: f.csv.value, days: f.days.value }); $('#imr').innerHTML = `<div class="msg ${r2.sent ? 'ok' : 'err'}">${r2.sent} link(s) sent.</div>` + r2.results.filter(x => !x.ok).map(x => `<div class="msg err">Row ${x.row} (${esc(x.email)}): ${esc(x.error)}</div>`).join(''); if (r2.sent) setTimeout(() => vAdmin('team', { j: cur }), 2500); }); };
     (async () => { const rr = await api('rec.list', {}); const L = rr.items.filter(x => x.journal === cur); $('#recs').innerHTML = L.length ? `<table class="list"><thead><tr><th>Recommended</th><th>Type</th><th>By</th><th>Status</th><th></th></tr></thead><tbody>${L.map(x => `<tr><td><b>${esc(x.name)}</b><div class="meta">${esc([x.email, x.affiliation].filter(Boolean).join(' · '))}${x.url ? ` · <a href="${esc(x.url)}" target="_blank">link</a>` : ''}</div>${x.note ? `<div class="meta">${esc(x.note)}</div>` : ''}</td><td>${esc(rr.kinds[x.kind] || x.kind)}</td><td class="meta">${esc(x.byName)}<br>${fmt(x.created)}</td><td>${st(x.status === 'new' ? 'submitted' : x.status === 'contacted' ? 'proof' : x.status === 'accepted' || x.status === 'done' ? 'published' : 'draft', x.status)}</td><td style="white-space:nowrap">${x.email ? `<button class="mini" data-ri="${x.id}">Send invitation</button> ` : ''}<select class="mini" data-rs="${x.id}">${['new', 'contacted', 'accepted', 'declined', 'done'].map(o => `<option ${o === x.status ? 'selected' : ''}>${o}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>` : '<div class="empty">No recommendations yet. Board members can send them from Editor tools.</div>';
       $$('[data-ri]').forEach(b => b.onclick = () => run(b, async () => { const msg = prompt('Add a personal line to the invitation (optional):', ''); if (msg === null) return; const x = await api('rec.update', { id: b.dataset.ri, op: 'invite', message: msg }); toast(x.message); }));
@@ -596,6 +670,9 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
       if (op === 'resend') { const d = prompt('Send a new link valid for how many days? (1, 3, 7, 14 or 30)', '7'); if (!d) return; await api('team.resend', { id, days: Number(d) }); }
       if (op === 'withdraw' && confirm('Withdraw this appointment?')) await api('team.end', { id, reason: 'Withdrawn' });
       if (op === 'site') await api('team.update', { id, showOnSite: !a.showOnSite });
+      if (op === 'invite') return inviteElsewhere(b, a);
+      if (op === 'message') return editMessage(b, a);
+      if (op === 'order') { const o = prompt('Position on the management page (1 = first):', a.order || ''); if (o === null) return; await api('team.update', { id, order: o }); }
       if (op === 'renew') { const end = prompt('Renew until (YYYY-MM-DD)? A new agreement will be sent for signature.', new Date(new Date(a.end).getTime() + 2 * 365 * 864e5).toISOString().slice(0, 10)); if (!end) return; await api('team.renew', { id, end }); }
       if (op === 'end') { const reason = prompt('Reason for ending this appointment early (shared with the editor):', 'Stepped down'); if (reason === null) return; const revoke = confirm('Is this a removal for breach? OK = removal (no certificate). Cancel = normal ending (certificate issued).'); await api('team.end', { id, reason, revoke }); }
       toast('Done'); vAdmin('team', { j: cur });
@@ -883,11 +960,11 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
     const { agreement: a } = await api('agreement.get', { token: q.token });
     document.documentElement.style.setProperty('--accent', a.accent || '#0B2545');
     const signed = a.status === 'active';
-    app.innerHTML = `<div class="page-h"><span class="kicker" style="color:${esc(a.accent)}">${esc(a.code)} · Editorial appointment</span><h1 style="font:600 30px var(--serif);margin:6px 0 4px">${esc(a.role)}, ${esc(a.journal)}</h1><p class="meta">Term: ${esc(a.start)} – ${esc(a.end)} · ${esc(a.name)} (${esc(a.email)})</p></div>
+    app.innerHTML = `<div class="page-h"><span class="kicker" style="color:${esc(a.accent)}">${a.mgmt ? 'ACRI Journals · Management appointment' : esc(a.code) + ' · Editorial appointment'}</span><h1 style="font:600 30px var(--serif);margin:6px 0 4px">${esc(a.role)}, ${esc(a.journal)}${a.mgmt ? ' management team' : ''}</h1><p class="meta">Term: ${esc(a.start)} – ${esc(a.end)} · ${esc(a.name)} (${esc(a.email)})</p></div>
       <div class="dgrid"><div class="panel prose" style="font:15.5px/1.65 var(--serif);max-width:none">${a.html}</div>
       <aside class="side"><div class="panel">${signed ? `<div class="msg ok">Signed by <b>${esc(a.signedName)}</b> on ${fmtT(a.signedAt)}. Your appointment is active.</div><a class="btn btn-primary" href="#/">Open the portal</a>`
         : a.status !== 'pending' ? `<div class="msg info">This appointment is ${esc(a.status)}.</div>`
-        : `${a.expires ? `<p class="meta" style="color:#B42318">This personal link is valid until ${fmtT(a.expires)}.</p>` : ''}<form id="agf"><h3>1. Your details on the board page</h3><p class="meta" style="margin-top:-6px">Shown on the journal's editorial board page and shared with ISSN India and indexing services.</p>
+        : `${a.expires ? `<p class="meta" style="color:#B42318">This personal link is valid until ${fmtT(a.expires)}.</p>` : ''}<form id="agf"><h3>1. Your details on the ${a.mgmt ? 'management' : 'board'} page</h3><p class="meta" style="margin-top:-6px">${a.mgmt ? 'Shown on the ACRI Journals management team page and your personal profile page.' : 'Shown on the journal\'s editorial board page and shared with ISSN India and indexing services.'}</p>
         <div class="row2"><div class="f"><label>First name *</label><input name="given" class="inp" value="${esc(a.profile.given)}"></div><div class="f"><label>Last name *</label><input name="family" class="inp" value="${esc(a.profile.family)}"></div></div>
         <div class="f"><label>Photo for the board page</label><div style="display:flex;gap:12px;align-items:center"><img id="phprev" src="${esc(a.profile.photo || '')}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;background:#EEF1F5;${a.profile.photo ? '' : 'visibility:hidden'}"><input type="file" id="phfile" accept="image/*" class="inp"></div><div class="meta">A clear head-and-shoulders photo. It is cropped to a square.</div></div>
         <div class="f"><label>Biography</label><textarea name="bio" class="inp" rows="6" maxlength="2000" placeholder="Your current position, research interests, recent work and notable achievements.">${esc(a.profile.bio || '')}</textarea><div class="meta">Shown on your personal profile page on the journal website; the first lines also appear on the board list. Up to 2,000 characters.</div></div>
@@ -904,11 +981,11 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
         <div class="f"><label>Personal or lab website <small>(optional)</small></label><input name="website" class="inp" value="${esc(a.profile.website || '')}" placeholder="https://"></div>
         <label class="chk"><input type="checkbox" name="showEmail" ${a.profile.showEmail ? 'checked' : ''}> Show my institutional email on the journal website</label>
         <label class="chk"><input type="checkbox" name="pageOn" ${a.profile.pageOff ? '' : 'checked'}> Give me a personal profile page on the journal website (recommended)</label>
-        <h3>2. Reviewing</h3><label class="chk"><input type="checkbox" name="reviewer" ${a.prefs.reviewer ? 'checked' : ''}> I am willing to review manuscripts</label>
+        ${a.mgmt ? '<div hidden>' : ''}<h3>2. Reviewing</h3><label class="chk"><input type="checkbox" name="reviewer" ${a.prefs.reviewer ? 'checked' : ''}> I am willing to review manuscripts</label>
         <div class="row2"><div class="f"><label>Days I need per review</label><select name="reviewDays" class="inp">${[7, 10, 14, 21, 30, 45, 60].map(d => `<option ${a.prefs.reviewDays === d ? 'selected' : ''}>${d}</option>`).join('')}</select></div><div class="f"><label>Reviews at a time</label><select name="reviewMax" class="inp">${[1, 2, 3, 4, 5, 0].map(d => `<option value="${d}" ${a.prefs.reviewMax === d ? 'selected' : ''}>${d === 0 ? 'No limit' : d}</option>`).join('')}</select></div></div>
-        <div class="f"><label>Your signature (optional, for letters you write as an editor)</label><input type="file" id="sigfile" accept="image/png,image/jpeg" class="inp"><div class="meta">PNG with a transparent background works best. You can add it later in Editor tools.</div></div>
+        ${a.mgmt ? '</div>' : ''}<div class="f"><label>Your signature (optional, for letters you write as an editor)</label><input type="file" id="sigfile" accept="image/png,image/jpeg" class="inp"><div class="meta">PNG with a transparent background works best. You can add it later in Editor tools.</div></div>
         ${a.needsPassword ? '<h3>3. Your portal password</h3><div class="f"><input name="password" type="password" class="inp" placeholder="At least 8 characters" autocomplete="new-password"></div>' : ''}
-        <h3>${a.needsPassword ? '4' : '3'}. Sign</h3></form><div id="m"></div><div class="f"><label>Type your full name</label><input id="sgn" class="inp" value=""></div><label class="chk"><input type="checkbox" id="agr"> I have read and agree to the ACRI Journals Editorial Agreement and the ACRI Journals policies.</label><button class="btn btn-green" id="sign" style="width:100%;justify-content:center;margin-top:10px">I agree and sign</button>
+        <h3>${a.needsPassword ? '4' : '3'}. Sign</h3></form><div id="m"></div><div class="f"><label>Type your full name</label><input id="sgn" class="inp" value=""></div><label class="chk"><input type="checkbox" id="agr"> I have read and agree to the ${a.mgmt ? 'ACRI Journals Management Appointment terms' : 'ACRI Journals Editorial Agreement'} and the ACRI Journals policies.</label><button class="btn btn-green" id="sign" style="width:100%;justify-content:center;margin-top:10px">I agree and sign</button>
 
         <h3 style="margin-top:26px">Not able to accept?</h3><div class="f"><textarea id="why" placeholder="Reason (optional)" style="min-height:60px"></textarea></div><button class="btn btn-ghost" id="decl">Decline appointment</button>`}</div></aside></div>`;
     const PH = {};
@@ -972,11 +1049,12 @@ board,,Asha,Mehta,asha.mehta@university.edu,PhD,Professor,Department of Manageme
         <div class="f"><label>Subject</label><input name="subject" class="inp"></div>
         <div class="f"><label>Text</label><textarea name="body" rows="12" class="inp" placeholder="Dear Sir/Madam,"></textarea>${help}</div>
         <div class="f"><label>Signed by</label><select name="signatory" class="inp">${sigOpts()}</select></div>
+        <label class="chk"><input type="checkbox" name="address"> Print the postal address and phone number on the letterhead <small class="meta">(only for official letters that need it, such as to the ISSN centre or a government office)</small></label>
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="lprev">Preview</button><button class="btn btn-primary">Save, number and download PDF</button></div>
         <p class="meta">Saving gives the document a reference number (e.g. ACRIJ/2026/LTR/001), stores the PDF in Drive and adds it to the register, so you can attach it to an email.</p></form>
         <div><div class="meta" style="margin-bottom:6px">Preview</div><iframe id="lpv" style="width:100%;height:900px;border:1px solid var(--line);border-radius:8px;background:#fff"></iframe></div></div>`;
       wire();
-      const data = () => { const F = $('#lf').elements; return { kind: F.kind.value, date: F.date.value, journal: F.journal.value, to: F.to.value, subject: F.subject.value, body: F.body.value, signatory: F.signatory.value }; };
+      const data = () => { const F = $('#lf').elements; return { kind: F.kind.value, date: F.date.value, journal: F.journal.value, to: F.to.value, subject: F.subject.value, body: F.body.value, signatory: F.signatory.value, address: F.address.checked }; };
       const prev = async () => { const r = await api('letter.preview', { letter: data() }); $('#lpv').srcdoc = r.html.replace('<style>', '<style>body{max-width:760px;margin:24px auto;padding:0 28px}'); };
       $('#lprev').onclick = (e) => run(e.target, prev);
       $('#lf').onsubmit = (e) => { e.preventDefault(); run(e.submitter, async () => { const r = await api('letter.create', { letter: data() }); download(r.name, 'application/pdf', r.data); toast('Saved as ' + r.ref + '.'); go('admin/letters?v=register'); }); };

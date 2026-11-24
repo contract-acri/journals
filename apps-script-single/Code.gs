@@ -64,7 +64,7 @@ const SCHEMA = {
   Issues: ['journal', 'volume', 'issue', 'year', 'label', 'title', 'status', 'pdf'],
   Subscribers: ['email', 'status', 'token', 'journals', 'created'],
   EmailLog: ['ts', 'to', 'subject', 'status', 'detail'],
-  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer'],
+  Appointments: ['id', 'userId', 'journal', 'role', 'title', 'start', 'end', 'status', 'token', 'agreementVersion', 'signedAt', 'signedName', 'signMeta', 'agreementFileId', 'showOnSite', 'order', 'reminded', 'endedAt', 'endReason', 'certificateFileId', 'renewalOf', 'createdBy', 'created', 'expires', 'transfer', 'message'],
   Contacts: ['email', 'name', 'list', 'status', 'token', 'source', 'consent', 'tags', 'created', 'updated', 'lastSent', 'sentCount'],
   Campaigns: ['id', 'journal', 'name', 'subject', 'preheader', 'preset', 'content', 'sender', 'audience', 'status', 'scheduledAt', 'createdBy', 'created', 'updated', 'stats', 'sentAt'],
   Queue: ['id', 'campaignId', 'email', 'name', 'token', 'status', 'error', 'ts'],
@@ -108,7 +108,10 @@ const ROLES = {
   senior: { label: 'Senior Editor', plural: 'Senior Editors', rank: 2 },
   editor: { label: 'Editor', plural: 'Editors', rank: 3 },
   board: { label: 'Editorial Board Member', plural: 'Editorial Board', rank: 4 },
+  mgmt: { label: 'Management Team', plural: 'Management team', rank: 0 },
 };
+/** The ACRI Journals management team is kept as appointments to this pseudo-journal. It gives no editorial rights. */
+const NETWORK = '_network';
 const AGREEMENT_VERSION = '1.0';
 
 const FILE_KINDS = {
@@ -589,7 +592,7 @@ function emailShell_(accent, journalName, inner) {
     '<tr><td style="height:4px;background:' + accent + '"></td></tr>' +
     '<tr><td style="padding:30px 28px 10px;font-size:15px;line-height:1.6">' + inner + '</td></tr>' +
     '<tr><td style="padding:18px 28px 26px;font-size:12px;color:#5E6875;border-top:1px solid #EEF0F3">' +
-    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · Sent by AES, the ACRI Editorial System.</td></tr>' +
+    'ACRI Journals · Part of ACRIVERSE<br><a href="' + siteUrl_() + '" style="color:#5E6875">' + siteUrl_().replace('https://', '') + '</a> · <a href="' + siteUrl_() + '/policies/privacy/" style="color:#5E6875">Privacy</a> · Sent by AES, the ACRI Editorial System.</td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 function btn_(href, label, accent) { return '<p style="margin:22px 0"><a href="' + href + '" style="background:' + (accent || '#0B2545') + ';color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">' + label + '</a></p>'; }
@@ -655,6 +658,7 @@ function mailTemplate_(key, to, data, ctx) {
 
 // ------------------------------------------------------------ journals
 function journalRow_(slug) {
+  if (slug === NETWORK) return { slug: NETWORK, code: 'ACRI', name: 'ACRI Journals', accent: '#0B2545', network: true, officeEmail: controllerEmail_(), editorEmail: editorsEmail_(), noReplyEmail: 'no.reply@' + mailDomain_() };
   const c = CacheService.getScriptCache(), k = 'J:' + slug, hit = c.get(k);
   if (hit) return JSON.parse(hit);
   const r = find_('Journals', 'slug', slug);
@@ -1328,7 +1332,7 @@ const PRIVATE = {
   'ed.tech': ed_techCheck, 'ed.assign': ed_assign, 'ed.invite': ed_inviteReviewer, 'ed.review': ed_reviewAction, 'ed.note': ed_note, 'ed.decide': ed_decide,
   'prod.send': prod_send, 'prod.check': prod_check, 'prod.source': prod_source, 'prod.saveSource': prod_saveSource, 'prod.publish': prod_publish,
   'prod.doi': prod_registerDoi, 'prod.reserve': prod_reserveDoi,
-  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
+  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'adm.importSub': adm_importSub, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
   'adm.saveJournal': adm_saveJournal, 'adm.saveIssue': adm_saveIssue, 'adm.testEmail': adm_testEmail, 'adm.rebuild': adm_rebuild,
   'team.list': team_list, 'team.appoint': team_appoint, 'team.resend': team_resend, 'team.update': team_update, 'team.end': team_end, 'team.renew': team_renew, 'team.file': team_file,
   'mail.lists': mail_lists, 'mail.contacts': mail_contacts, 'mail.import': mail_import, 'mail.setContact': mail_setContact,
@@ -1542,11 +1546,28 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
-      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean) }; });
+    .map(a => memberCard_(a, users[a.userId] || {}));
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
+/** What the website shows for one person (board or management). */
+function memberCard_(a, u) {
+  const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
+      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean), message: a.message || '' };
+}
+/** The ACRI Journals management team, in the order the admin sets. */
+function mgmtFor_() {
+  const users = {}; all_('Users').forEach(u => users[u.id] = u);
+  return activeAppointments_(NETWORK).filter(a => String(a.showOnSite) !== 'false')
+    .sort((a, b) => ((Number(a.order) || 99) - (Number(b.order) || 99)) || String(a.start).localeCompare(String(b.start)))
+    .map(a => Object.assign(memberCard_(a, users[a.userId] || {}), { group: 'Management team' }));
+}
+function syncMgmt_() {
+  const team = { updated: now_(), members: mgmtFor_() };
+  if (prop_('GITHUB_TOKEN')) try { ghCommit_([{ path: 'content/management.json', text: JSON.stringify(team, null, 2) }], 'Management team update'); } catch (e) { console.error(e); }
+  return team;
+}
 function syncBoard_(slug) {
+  if (slug === NETWORK) return syncMgmt_();
   const r = find_('Journals', 'slug', slug); if (!r) return;
   const json = Object.assign({}, r.json || {}); json.board = boardFor_(slug, json.boardExtra || []);
   update_('Journals', 'slug', slug, { json: json, updated: now_() });
@@ -1556,6 +1577,7 @@ function syncBoard_(slug) {
 
 // ------------------------------------------------------------ agreement text (versioned)
 function agreementHtml_(a, u, j) {
+  if (a.journal === NETWORK) return mgmtAgreementHtml_(a, u);
   const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
   const duties = {
     eic: 'set the editorial direction of the Journal; make final decisions on manuscripts on the basis of scholarly merit; appoint handling editors; ensure the integrity, timeliness and fairness of peer review; and represent the Journal',
@@ -1599,7 +1621,7 @@ function certificateHtml_(a, u, j) {
 }
 
 // ------------------------------------------------------------ admin / EIC actions
-function canAppoint_(u, journal, role) { return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
+function canAppoint_(u, journal, role) { if (journal === NETWORK || role === 'mgmt') return isAdmin_(u); return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
 
 function team_list(p, u) {
   need_(isAdmin_(u) || (p.journal && isEic_(u, p.journal)), 'Not allowed.');
@@ -1607,13 +1629,15 @@ function team_list(p, u) {
   const items = all_('Appointments').filter(a => !p.journal || a.journal === p.journal).map(a => {
     const x = users[a.userId] || {};
     return { id: a.id, journal: a.journal, role: a.role, roleLabel: roleLabel_(a), title: a.title, start: String(a.start).slice(0, 10), end: String(a.end).slice(0, 10), status: a.status, signedAt: a.signedAt, signedName: a.signedName, showOnSite: String(a.showOnSite) !== 'false', order: a.order,
-      name: (x.given + ' ' + x.family).trim() || x.email, email: x.email, affiliation: x.affiliation, link: a.status === 'pending' ? portalUrl_('agreement?token=' + a.token) : '', expires: a.expires || '', agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason };
+      name: (x.given + ' ' + x.family).trim() || x.email, email: x.email, affiliation: x.affiliation, link: a.status === 'pending' ? portalUrl_('agreement?token=' + a.token) : '', expires: a.expires || '', agreementFileId: a.agreementFileId, certificateFileId: a.certificateFileId, endReason: a.endReason, message: a.message || '' };
   }).sort((a, b) => a.journal.localeCompare(b.journal) || ROLES[a.role].rank - ROLES[b.role].rank || String(b.start).localeCompare(String(a.start)));
   return { ok: true, items: items, roles: ROLES };
 }
 
 function team_appoint(p, u) {
   need_(ROLES[p.role], 'Choose a role.');
+  need_((p.journal === NETWORK) === (p.role === 'mgmt'), p.journal === NETWORK ? 'The management team uses the role "Management team".' : 'Choose an editorial role for a journal.');
+  if (p.role === 'mgmt') need_(String(p.title || '').trim(), 'Enter the title shown on the website, e.g. Chairperson, Managing Director or Head of Operations.');
   need_(canAppoint_(u, p.journal, p.role), 'Only an admin can appoint an Editor-in-Chief. EICs can appoint other roles in their journal.');
   need_(p.start && p.end && p.end > p.start, 'Enter a valid term (start and end dates).');
   const j = journalRow_(p.journal), email = normEmail_(p.email);
@@ -1637,7 +1661,7 @@ function team_appoint(p, u) {
 }
 function sendAppointment_(a, x, j, setPw) {
   const exp = a.expires ? Utilities.formatDate(new Date(a.expires), 'Asia/Kolkata', 'd MMMM yyyy, h:mm a') + ' IST' : '';
-  mailTemplate_('appoint', x.email, { name: x.given || 'Colleague', role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp }, { journal: a.journal });
+  mailTemplate_('appoint', x.email, { name: x.given || 'Colleague', role: roleLabel_(a), journal: j.name, start: fmtD_(a.start), end: fmtD_(a.end), link: portalUrl_('agreement?token=' + a.token), setPw: setPw, renewal: !!a.renewalOf, transfer: String(a.transfer) === 'true' || a.transfer === true, expires: exp, existing: !!x.passHash, mgmt: a.journal === NETWORK }, { journal: a.journal === NETWORK ? '' : a.journal });
 }
 function team_resend(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
@@ -1653,6 +1677,7 @@ function team_update(p, u) {
   const a = find_('Appointments', 'id', p.id); need_(a && canAppoint_(u, a.journal, a.role), 'Not allowed.');
   const patch = {};
   ['title', 'order'].forEach(k => { if (p[k] !== undefined) patch[k] = p[k]; });
+  if (p.message !== undefined) { need_(isAdmin_(u), 'Only an admin can edit a message.'); patch.message = String(p.message).trim().slice(0, 6000); }
   if (p.showOnSite !== undefined) patch.showOnSite = !!p.showOnSite;
   if (p.end && a.status === 'pending') patch.end = p.end;
   update_('Appointments', 'id', a.id, patch);
@@ -1702,7 +1727,7 @@ function appt_(token) {
 }
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+  return { ok: true, agreement: { mgmt: a.journal === NETWORK, status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
     profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
@@ -1725,7 +1750,8 @@ function agreement_sign(p) {
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
-  if (p.profile) {
+  if (p.profile && a.journal === NETWORK) need_(prof.designation, 'Please enter your designation, as it should appear on the management page.');
+  else if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
     if (prof.instEmail) instEmailOk_(prof.instEmail);
     if (prof.profileUrl) need_(/^https?:\/\//.test(prof.profileUrl), 'Profile link must start with https://');
@@ -1781,7 +1807,7 @@ function termsTick() {
 
 // ------------------------------------------------------------ email templates for the team
 Object.assign(TEMPLATES, {
-  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : 'Your'} appointment as ${d.role}, ${d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> for the term <b>${d.start} to ${d.end}</b>.</p><p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
+  appoint: d => [d.transfer ? `${d.journal} has moved to ACRI Journals: please confirm your board membership` : `${d.renewal ? 'Renewal of your' : d.existing ? 'Invitation: join' : 'Your'} ${d.existing && !d.renewal ? d.journal + ' as ' + d.role : 'appointment as ' + d.role + ', ' + d.journal}`, `<p>Dear ${esc_(d.name)},</p>${d.transfer ? `<p>Thank you for serving on the editorial board of <b>${esc_(d.journal)}</b>. The journal now runs on <b>ACRI Journals</b>, our new publishing platform, with its own editorial portal for manuscripts, reviews and board work.</p><p>To continue as <b>${esc_(d.role)}</b> for the term <b>${d.start} to ${d.end}</b>, please confirm your details, set your reviewing preferences and sign the Editorial Agreement. It takes about five minutes.</p>` : `<p>On behalf of ACRI Journals, it is a pleasure to ${d.renewal ? 'renew your appointment' : 'invite you to serve'} as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b>${d.mgmt ? ' (the management team of the ACRI Journals network)' : ''} for the term <b>${d.start} to ${d.end}</b>.</p>${d.existing && !d.renewal ? `<p>You already have an ACRI One account, so your details are filled in for you: just check them and sign in with your usual password. This appointment is in addition to any role you already hold.</p>` : ''}<p>Before your appointment begins, please read and electronically sign the ACRI Journals Editorial Agreement. It covers your responsibilities, confidentiality, conflicts of interest and publication ethics. Your editorial access starts as soon as you sign.</p>`}${btn_(d.link, d.transfer ? 'Confirm and sign' : 'Review and sign the agreement')}${d.expires ? `<p style="color:#B42318;font-size:14px"><b>This link is personal and valid until ${esc_(d.expires)}.</b></p>` : ''}${d.setPw ? `<p>You will choose your portal password on the same page.</p>` : ''}<p>If you would prefer not to accept, you can decline from the same page.</p><p>With thanks,<br>ACRI Journals</p>`],
   appoint_signed: d => [`Welcome: your appointment as ${d.role} is active`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for signing the Editorial Agreement. Your appointment as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> is now active, from ${d.start} to ${d.end}.</p><p>A signed copy of the agreement is attached. Your editorial tools are available in the portal.</p>${btn_(d.link, 'Open the editorial portal')}<p>Welcome to the team.</p>`],
   appoint_declined: d => [`Appointment declined: ${d.who} (${d.role})`, `<p>${esc_(d.who)} has declined the appointment as ${esc_(d.role)} of ${esc_(d.journal)}.</p>${d.reason ? quote_(d.reason) : ''}`],
   term_reminder: d => [`Your term as ${d.role} ends on ${d.end}`, `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> ends on <b>${d.end}</b> (${d.days} days from now).</p>${d.renewed ? '<p>A renewal has already been arranged. Please make sure you have signed the new agreement.</p>' : '<p>If you would like to continue, please reply to this email. The editorial office can send you a renewal. Otherwise, please hand over any manuscripts you are handling before your term ends.</p>'}<p>Thank you for your service to the journal.</p>`],
@@ -1811,6 +1837,24 @@ function pageLinks_(p) {
   if (p.showEmail !== undefined) out.showEmail = !!p.showEmail;
   if (p.pageOff !== undefined) out.pageOff = !!p.pageOff;
   return out;
+}
+
+// ------------------------------------------------------------ management team agreement
+function mgmtAgreementHtml_(a, u) {
+  const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
+  return `<h1 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">ACRI Journals Management Appointment</h1>
+<p style="color:#5E6875;margin:0 0 18px">Version ${AGREEMENT_VERSION} · ACRI Journals management team</p>
+<p>This Agreement is between <b>ACRI Journals</b>, operated by ${CFG.LEGAL_ENTITY} ("ACRI Journals"), and <b>${esc_(name)}</b> ("you"). It sets out the terms of your appointment as <b>${esc_(role)}</b> of ACRI Journals.</p>
+<h3>1. Appointment and term</h3><p>You are appointed ${esc_(role)} from <b>${fmtD_(a.start)}</b> to <b>${fmtD_(a.end)}</b>. The appointment takes effect when you sign this Agreement and may be renewed by mutual agreement.</p>
+<h3>2. Responsibilities</h3><p>You will support the management, operations, governance and development of ACRI Journals in the role described above, in line with the ACRI Journals <a href="${siteUrl_()}/policies/">policies</a> and the COPE Core Practices.</p>
+<h3>3. Editorial independence</h3><p>The management team does not take part in decisions on individual manuscripts. You will not seek to influence the review or acceptance of any manuscript, and you will refer any concern about a manuscript to the journal's Editor-in-Chief.</p>
+<h3>4. Confidentiality</h3><p>You will keep confidential any non-public information about manuscripts, authors, reviewers, editors, finances and operations that you learn in this role. This continues after your term ends.</p>
+<h3>5. Conflicts of interest</h3><p>You will declare any interest that could affect, or appear to affect, your judgement, and step aside from any matter in which you have such an interest.</p>
+<h3>6. Data protection</h3><p>You will handle personal data only for ACRI Journals purposes, in line with the <a href="${siteUrl_()}/policies/privacy/">Privacy Policy</a> and India's Digital Personal Data Protection Act, 2023. You consent to your name, title, designation, photo, biography and profile links being published on the ACRI Journals management page.</p>
+<h3>7. Representation</h3><p>You may describe your role publicly. You will speak on behalf of ACRI Journals only within the authority of your role.</p>
+<h3>8. Ending the appointment</h3><p>Either party may end the appointment with 30 days' written notice. ACRI Journals may end it immediately for a serious breach, after giving you an opportunity to respond. Sections 3, 4 and 6 continue after the appointment ends.</p>
+<h3>9. Governing law</h3><p>This Agreement is governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat.</p>
+<h3>10. Electronic signature</h3><p>By typing your full name and selecting "I agree and sign", you sign this Agreement electronically, and the signature has the same effect as a handwritten one.</p>`;
 }
 
 // ===== 11_Mailing.gs =====
@@ -2110,7 +2154,7 @@ function renderCampaign_(c, r) {
     '<tr><td style="background:#0B2545;padding:22px 32px;' + font + ';font-size:12px;line-height:1.6;color:#AEBACB">' +
     'You are receiving this because you subscribed to ' + esc_(listName_(c.journal || 'network')) + ' updates' + (j ? '' : '') + '.<br>' +
     '<a href="' + unsub + '" style="color:#fff">Unsubscribe</a> · <a href="' + prefs + '" style="color:#fff">Email preferences</a> · <a href="' + siteUrl_() + '/policies/email/" style="color:#fff">Email policy</a><br>' +
-    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India · <a href="' + siteUrl_() + '" style="color:#AEBACB">' + siteUrl_().replace('https://', '') + '</a></td></tr>' +
+    'ACRI Journals · Part of ACRIVERSE · <a href="' + siteUrl_() + '" style="color:#AEBACB">' + siteUrl_().replace('https://', '') + '</a></td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 
@@ -2687,6 +2731,7 @@ const SITE_FIELDS = [
   ['Home page', 'homeHeadline', 'Headline', 'text'],
   ['Home page', 'homeHeadlineAccent', 'Headline (highlighted part)', 'text'],
   ['Home page', 'homeIntro', 'Introduction', 'textarea'],
+  ['Home page', 'homeManifesto', 'Statement of purpose (large text under the headline; wrap words in *stars* to highlight them)', 'textarea'],
   ['Home page', 'tagline', 'Tagline', 'text'],
   ['Home page', 'description', 'Site description (search engines)', 'textarea'],
   ['Fees', 'fees.confirmed', 'Fees confirmed and shown on the site', 'bool'],
@@ -2822,7 +2867,7 @@ function letterheadHtml_(opt) {
   const left = j
     ? (logo ? '<img src="' + logo + '" style="height:58px;vertical-align:middle;margin-right:12px">' : '') + '<span style="display:inline-block;vertical-align:middle"><span style="font-family:Georgia,serif;font-weight:bold;font-size:17px;color:' + accent + '">' + esc_(j.name) + '</span><br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">' + esc_(j.code) + (j.issnOnline ? ' · e-ISSN ' + esc_(j.issnOnline) : '') + ' · AN ACRI JOURNALS PUBLICATION</span></span>'
     : brand + '<br><span style="font-family:Arial,sans-serif;font-size:10px;color:#5E6875;letter-spacing:1px">PUBLISHED BY ' + esc_(P.name.toUpperCase()) + '</span>';
-  const right = '<div style="font-family:Arial,sans-serif;font-size:9.5px;line-height:1.55;color:#5E6875;text-align:right">' + esc_(P.name) + '<br>' + esc_(P.address).replace(/, (?=[^,]*Gujarat)/, ',<br>') + '<br>' + (P.phone ? 'Tel ' + esc_(P.phone) + ' · ' : '') + esc_(P.email) + '<br>' + esc_(P.web) + '</div>';
+  const right = '<div style="font-family:Arial,sans-serif;font-size:9.5px;line-height:1.55;color:#5E6875;text-align:right">' + esc_(P.name) + '<br>' + (opt.address ? esc_(P.address).replace(/, (?=[^,]*Gujarat)/, ',<br>') + '<br>' + (P.phone ? 'Tel ' + esc_(P.phone) + '<br>' : '') : '') + esc_(P.email) + '<br>' + esc_(P.web) + '</div>';
   const sigBlock = sg ? '<div style="margin-top:34px">' + (sig ? '<img src="' + sig + '" style="height:58px;display:block;margin:0 0 2px">' : '<div style="height:40px"></div>') +
     '<div style="border-top:1px solid #9AA3AE;width:220px;padding-top:6px;font-family:Arial,sans-serif;font-size:11.5px;line-height:1.45"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '';
   return '<html><head><style>@page{size:A4;margin:16mm 18mm 16mm 18mm}body{font-family:Georgia,\'Times New Roman\',serif;font-size:12.5px;line-height:1.62;color:#15191E}p{margin:0 0 10px}ul,ol{margin:0 0 10px 18px;padding:0}a{color:' + accent + '}</style></head><body>' +
@@ -2855,7 +2900,7 @@ function letterCtx_(p, u) {
   const asMe = !admin || l.signatory === 'me';
   if (asMe) need_(l.journal, 'Choose the journal whose letterhead you are writing on.');
   const me = asMe ? selfSignatory_(find_('Users', 'id', u.id), l.journal) : null;
-  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind } };
+  return { l: l, opt: { journal: l.journal, date: l.date, to: l.to, subject: l.subject, bodyHtml: letterBody_(l.body), signatory: l.signatory, sigObj: me, fromDesk: me, kind: l.kind, address: admin && (l.address === true || l.address === 'true') } };
 }
 function letter_preview(p, u) {
   const c = letterCtx_(p, u);
@@ -2907,7 +2952,7 @@ function pubCertHtml_(a, j, author, ref) {
     '<div style="font-size:14px;line-height:1.6">published after peer review in<br><b style="color:' + accent + '">' + esc_(j.name) + '</b>' + (j.issnOnline ? ' (e-ISSN ' + esc_(j.issnOnline) + ')' : '') + '<br>' + esc_(where) + '</div>' +
     (a.doi ? '<div style="font-family:Arial,sans-serif;font-size:11px;margin-top:8px">DOI: <b>' + esc_(a.doi) + '</b></div>' : '') +
     '<table width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px"><tr>' +
-    '<td style="text-align:left;vertical-align:bottom;width:50%;font-family:Arial,sans-serif;font-size:9.5px;color:#5E6875">Issued ' + esc_(longDate_()) + '<br>Verify at ' + esc_(url) + '<br>' + esc_(P.name) + ', ' + esc_(P.address) + '</td>' +
+    '<td style="text-align:left;vertical-align:bottom;width:50%;font-family:Arial,sans-serif;font-size:9.5px;color:#5E6875">Issued ' + esc_(longDate_()) + '<br>Verify at ' + esc_(url) + '<br>' + esc_(P.name) + '</td>' +
     '<td style="text-align:right;vertical-align:bottom">' + (sg ? '<div style="display:inline-block;text-align:center">' + (sig ? '<img src="' + sig + '" style="height:54px;display:block;margin:0 auto 2px">' : '<div style="height:44px"></div>') +
     '<div style="border-top:1px solid #9AA3AE;padding-top:5px;font-family:Arial,sans-serif;font-size:11px;min-width:210px"><b>' + esc_(sg.name) + '</b><br>' + esc_(sg.designation) + (sg.org ? '<br>' + esc_(sg.org) : '') + '</div></div>' : '') + '</td></tr></table>' +
     '</div></body></html>';
@@ -3081,3 +3126,57 @@ function me_photo(p, u) {
   myJournals_(u).forEach(s => { try { syncBoard_(s); } catch (e) { } });
   return { ok: true, message: 'Photo saved. The board page updates in a few minutes.' };
 }
+
+// ===== 19_Import.gs =====
+/** Import a submission received outside AES (for example through the old Google Form).
+ *  The admin enters the details, uploads the manuscript and keeps the original date of receipt.
+ *  The submission joins the editorial queue as "submitted" with its own manuscript ID, and the
+ *  corresponding author gets an ACRI One account (if new) with a link to set a password. */
+function adm_importSub(p, u) {
+  need_(isAdmin_(u), 'Only an admin can import a submission.');
+  const f = p.sub || {};
+  const j = journalRow_(f.journal); need_(j && !j.network, 'Choose a journal.');
+  need_(String(f.title || '').trim(), 'Enter the title.');
+  need_(String(f.abstract || '').trim(), 'Enter the abstract.');
+  const authors = (f.authors || []).filter(a => String(a.given || a.family || '').trim());
+  need_(authors.length, 'Add at least one author.');
+  if (!authors.some(a => a.corresponding)) authors[0].corresponding = true;
+  const corr = authors.find(a => a.corresponding);
+  corr.email = normEmail_(corr.email || '');
+  need_(/@/.test(corr.email), 'The corresponding author needs an email address.');
+  need_(p.file && p.file.data, 'Upload the manuscript file.');
+  const received = String(f.received || '').slice(0, 10);
+  need_(/^\d{4}-\d{2}-\d{2}$/.test(received), 'Enter the date the submission was received.');
+  const dup = where_('Submissions', s => s.journal === f.journal && String(s.title || '').trim().toLowerCase() === String(f.title).trim().toLowerCase());
+  need_(!dup.length || p.force, 'A submission with this title already exists (' + (dup[0] || {}).id + '). Tick "Import anyway" if this is a different paper.');
+  return withLock_(() => {
+    // Author account
+    let x = find_('Users', 'email', corr.email), setPw = '';
+    if (!x) {
+      const t = token_();
+      x = insert_('Users', { id: uid_('U'), email: corr.email, given: corr.given || '', family: corr.family || '', degrees: corr.degrees || '', affiliation: corr.affiliationName || '', designation: corr.designation || '', phone: corr.phone || '', country: corr.country || 'India', passHash: '', salt: token_().slice(0, 16), verified: true, resetToken: t, resetExpires: new Date(Date.now() + 30 * 864e5).toISOString(), reviewer: false, roles: {}, status: 'active', created: now_() });
+      setPw = portalUrl_('reset?token=' + t);
+    }
+    // Affiliations list from the authors' institutions
+    const affs = [], affId = (name) => { name = String(name || '').trim(); if (!name) return []; let a = affs.find(z => z.name.toLowerCase() === name.toLowerCase()); if (!a) { a = { id: affs.length + 1, name: name }; affs.push(a); } return [a.id]; };
+    const list = authors.map(a => ({ given: String(a.given || '').trim(), family: String(a.family || '').trim(), degrees: a.degrees || '', email: normEmail_(a.email || ''), orcid: a.orcid || '', affiliations: affId(a.affiliationName), corresponding: !!a.corresponding }));
+    const n = nextId_(f.journal);
+    const recIso = new Date(received + 'T12:00:00+05:30').toISOString();
+    const src = String(f.source || 'Google Form').trim();
+    const s = insert_('Submissions', {
+      id: n.id, journal: f.journal, year: n.year, serial: n.serial, status: 'submitted', type: f.type || 'Research Article',
+      subject: f.subject || [], title: String(f.title).trim(), subtitle: '', abstract: JSON.stringify(String(f.abstract).trim()), keywords: f.keywords || [],
+      authors: list, affiliations: affs,
+      declarations: { original: true, ethics: true, consent: true, license: true, imported: src, importedNote: f.declarationNote || 'Declarations accepted on the original submission form.' },
+      coverLetter: f.coverLetter || '', submitterId: x.id, editorId: '', version: 1, created: recIso, updated: now_(), submittedAt: recIso,
+      flags: { imported: src, importedBy: u.email, importedAt: now_(), originalLink: f.originalLink || '' } });
+    saveUpload_(s, 1, 'manuscript', p.file.name, p.file.mime, p.file.data, u.id);
+    if (p.titlepage && p.titlepage.data) saveUpload_(s, 1, 'titlepage', p.titlepage.name, p.titlepage.mime, p.titlepage.data, u.id);
+    log_(s.id, u.id, 'imported', 'Received on ' + fmtD_(received) + ' through the ' + src + '; imported into AES by the editorial office.', true);
+    if (p.notify !== false) mailTemplate_('imported_author', corr.email, { name: corr.given || 'Author', id: s.id, title: s.title, journal: j.name, received: fmtD_(received), source: src, link: link_(s.id), setPw: setPw }, { journal: s.journal });
+    return { ok: true, id: s.id, newAccount: !!setPw, message: 'Imported as ' + s.id + '.' + (p.notify !== false ? ' The author has been emailed.' : '') };
+  });
+}
+Object.assign(TEMPLATES, {
+  imported_author: d => [`Your submission is now in the ACRI Journals portal: ${d.id}`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for submitting your manuscript to <b>${esc_(d.journal)}</b> on ${esc_(d.received)} through our ${esc_(d.source)}. We have now moved all submissions to the ACRI Journals editorial portal, and yours has been carried across with its original date of receipt.</p><p><b>Manuscript ID:</b> ${d.id}<br><b>Title:</b> ${esc_(d.title)}</p><p>There is nothing you need to resubmit. You can follow every stage of the review online, and you will receive emails as your manuscript moves forward.</p>${d.setPw ? `<p>We have created an ACRI One account for you with this email address. Please choose a password to sign in:</p>${btn_(d.setPw, 'Set your password')}<p style="font-size:14px;color:#5E6875">This link is valid for 30 days. After that, use "Forgot password" on the sign-in page.</p>` : `${btn_(d.link, 'View your submission')}`}<p>With thanks,<br>The Editorial Office<br>${esc_(d.journal)}</p>`],
+});

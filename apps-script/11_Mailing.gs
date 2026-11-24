@@ -294,7 +294,7 @@ function renderCampaign_(c, r) {
     '<tr><td style="background:#0B2545;padding:22px 32px;' + font + ';font-size:12px;line-height:1.6;color:#AEBACB">' +
     'You are receiving this because you subscribed to ' + esc_(listName_(c.journal || 'network')) + ' updates' + (j ? '' : '') + '.<br>' +
     '<a href="' + unsub + '" style="color:#fff">Unsubscribe</a> · <a href="' + prefs + '" style="color:#fff">Email preferences</a> · <a href="' + siteUrl_() + '/policies/email/" style="color:#fff">Email policy</a><br>' +
-    'ACRI Journals · Part of ACRIVERSE · Ahmedabad, India · <a href="' + siteUrl_() + '" style="color:#AEBACB">' + siteUrl_().replace('https://', '') + '</a></td></tr>' +
+    'ACRI Journals · Part of ACRIVERSE · <a href="' + siteUrl_() + '" style="color:#AEBACB">' + siteUrl_().replace('https://', '') + '</a></td></tr>' +
     '</table></td></tr></table></body></html>';
 }
 

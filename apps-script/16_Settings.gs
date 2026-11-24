@@ -38,6 +38,7 @@ const SITE_FIELDS = [
   ['Home page', 'homeHeadline', 'Headline', 'text'],
   ['Home page', 'homeHeadlineAccent', 'Headline (highlighted part)', 'text'],
   ['Home page', 'homeIntro', 'Introduction', 'textarea'],
+  ['Home page', 'homeManifesto', 'Statement of purpose (large text under the headline; wrap words in *stars* to highlight them)', 'textarea'],
   ['Home page', 'tagline', 'Tagline', 'text'],
   ['Home page', 'description', 'Site description (search engines)', 'textarea'],
   ['Fees', 'fees.confirmed', 'Fees confirmed and shown on the site', 'bool'],
