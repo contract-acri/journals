@@ -7,7 +7,7 @@ import path from 'node:path';
 import {
   ROOT, CONTENT, DIST, readJSON, readText, write, copyDir, hash, esc, strip,
   fmtDate, fmtMonthYear, year, slashDate, fullName, nameWithDegrees, authorsShort, authorsTiny,
-  citations, abstractText, elocator, loc, doiUrl, MARK, WORDMARK, ORCID, journalLogoSVG, CCBY, ICON,
+  citations, abstractText, slugify, elocator, loc, doiUrl, MARK, WORDMARK, ORCID, journalLogoSVG, CCBY, ICON,
 } from './lib.mjs';
 import { policies, POLICY_GROUPS } from './policies.mjs';
 
@@ -555,16 +555,81 @@ function archivePage(j) {
   </div>` });
 }
 
+// ---------------------------------------------------------------- editorial board + personal pages
+const plainOf = (p) => (p.plainName || String(p.name || '').split(',')[0]).trim();
+const normName = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[^a-z\s]/g, '').replace(/\b(dr|prof|mr|ms|mrs)\b/g, '').replace(/\s+/g, ' ').trim();
+// Give every board entry a stable page slug (set by AES; derived from the name for older entries).
+const boardOf = (j) => {
+  if (j._board) return j._board;
+  const used = {};
+  j._board = (j.board || []).map(p => {
+    const q = Object.assign({}, p);
+    if (p.pageOff) q.slug = '';
+    else {
+      let s = p.slug || slugify(plainOf(p)) || 'member', base = s, n = 2;
+      while (used[s] && used[s] !== normName(plainOf(p))) s = base + '-' + (n++);
+      used[s] = normName(plainOf(p)); q.slug = s;
+    }
+    return q;
+  });
+  return j._board;
+};
+const personUrl = (j, p) => `/journals/${j.slug}/editorial-board/${p.slug}/`;
+// Everywhere this person serves, across the network.
+const servesOf = (p) => {
+  const key = p.orcid || normName(plainOf(p)), out = [];
+  for (const j of journals) for (const q of boardOf(j)) if ((q.orcid && q.orcid === p.orcid) || normName(plainOf(q)) === normName(plainOf(p))) { if (!key) continue; out.push({ j, q }); }
+  return out;
+};
+const authoredBy = (p) => pub.filter(a => (a.authors || []).some(au => (p.orcid && au.orcid === p.orcid) || normName(fullName(au)) === normName(plainOf(p)))).sort((a, b) => String(b.published).localeCompare(String(a.published)));
+const short = (t, n) => { t = String(t || ''); return t.length > n ? t.slice(0, t.lastIndexOf(' ', n) > 0 ? t.lastIndexOf(' ', n) : n) + '…' : t; };
+const ICONL = { scholar: 'Google Scholar', linkedin: 'LinkedIn', website: 'Website', profile: 'Institutional profile' };
+
 function boardPage(j) {
   currentTab = 'board';
   const MG = 'Publisher & journal management';
-  const groups = {}; for (const p of j.board || []) (groups[p.group || p.role] ||= []).push(p);
+  const groups = {}; for (const p of boardOf(j)) (groups[p.group || p.role] ||= []).push(p);
   const keys = Object.keys(groups).sort((a, b) => (a === MG) - (b === MG));
-  const card = (p) => `<div class="person${p.photo ? ' has-photo' : ''}">${p.photo ? `<img class="pph" src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" width="84" height="84">` : ''}<span class="role">${esc(p.role)}</span><b>${esc(p.name)}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}<span>${esc(p.affiliation || '')}</span>${p.address ? `<span>${esc(p.address)}</span>` : ''}${p.email ? `<span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}${p.profile ? `<span><a href="${esc(p.profile)}" rel="noopener">Institutional profile ↗</a></span>` : ''}${p.orcid ? `<span><a href="https://orcid.org/${esc(p.orcid)}">${ORCID} ${esc(p.orcid)}</a></span>` : ''}${p.since ? `<span>Serving since ${esc(p.since)}</span>` : ''}${p.bio ? `<p class="pbio">${esc(p.bio)}</p>` : ''}</div>`;
+  const card = (p) => {
+    const u = p.slug ? personUrl(j, p) : '';
+    const nm = u ? `<a class="pname" href="${u}">${esc(p.name)}</a>` : esc(p.name);
+    return `<div class="person${p.photo ? ' has-photo' : ''}">${p.photo ? (u ? `<a href="${u}" tabindex="-1" aria-hidden="true">` : '') + `<img class="pph" src="${esc(p.photo)}" alt="${esc(p.name)}" loading="lazy" width="84" height="84">` + (u ? '</a>' : '') : ''}<span class="role">${esc(p.role)}</span><b>${nm}</b>${p.designation ? `<span>${esc(p.designation)}${p.department ? ', ' + esc(p.department) : ''}</span>` : ''}<span>${esc(p.affiliation || '')}</span>${p.address ? `<span class="lbl">Institutional address</span><span>${esc(p.address)}</span>` : ''}${p.email ? `<span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>` : ''}${p.profile ? `<span><a href="${esc(p.profile)}" rel="noopener">Institutional profile ↗</a></span>` : ''}${p.orcid ? `<span><a class="orcidl" href="https://orcid.org/${esc(p.orcid)}" rel="noopener" title="ORCID iD">${ORCID}${esc(p.orcid)}</a></span>` : ''}${p.since ? `<span>Serving since ${esc(p.since)}</span>` : ''}${p.bio ? `<p class="pbio">${esc(short(p.bio, 240))}</p>` : ''}${u ? `<a class="pmore" href="${u}">View full profile →</a>` : ''}</div>`;
+  };
   return layout({ j, title: 'Editorial Board', canonical: BASE + `/journals/${j.slug}/editorial-board/`, body: `<div class="wrap page"><div class="page-h"><span class="kicker">${esc(j.code)}</span><h1>Editorial Board</h1><p>The editors set the journal's direction, handle manuscripts and uphold its standards of review. Every editor has agreed to serve, signs the <a href="/policies/editorial-independence/">ACRI Journals Editorial Agreement</a> and serves a fixed term. The board is reviewed at least once a year.</p></div>
   ${keys.map(r => `<section class="toc-sec"><h2>${esc(r)}</h2><div class="board" style="margin-top:18px">${groups[r].map(card).join('')}</div></section>`).join('') || '<p class="meta">The editorial board is being appointed.</p>'}
   <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo().name)}${pubInfo().address ? ', ' + esc(pubInfo().address) : ''}${pubInfo().phone ? ' · Phone: ' + esc(pubInfo().phone) : ''}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
   </div>` });
+}
+
+function personPage(j, p) {
+  currentTab = 'board';
+  const serves = servesOf(p), canon = serves[0] ? personUrl(serves[0].j, serves[0].q) : personUrl(j, p);
+  const arts = authoredBy(p);
+  const links = [['profile', p.profile], ['scholar', p.scholar], ['linkedin', p.linkedin], ['website', p.website]].filter(x => x[1]);
+  const pos = [p.designation && (p.designation + (p.department ? ', ' + p.department : '')), p.affiliation].filter(Boolean);
+  const ld = { '@context': 'https://schema.org', '@type': 'ProfilePage', url: BASE + canon, mainEntity: { '@type': 'Person', name: plainOf(p), ...(p.designation ? { jobTitle: p.designation } : {}), ...(p.affiliation ? { affiliation: { '@type': 'Organization', name: p.affiliation, ...(p.address ? { address: p.address } : {}) } } : {}), ...(p.photo ? { image: BASE + p.photo } : {}), ...(p.bio ? { description: short(p.bio, 300) } : {}), ...(p.interests?.length ? { knowsAbout: p.interests } : {}), ...(p.orcid ? { identifier: 'https://orcid.org/' + p.orcid } : {}), sameAs: [p.orcid && 'https://orcid.org/' + p.orcid, p.profile, p.scholar, p.linkedin, p.website].filter(Boolean), memberOf: serves.map(s => ({ '@type': 'Organization', name: s.j.name, url: `${BASE}/journals/${s.j.slug}/` })) } };
+  const desc = `${plainOf(p)} — ${p.role}, ${j.name}.${pos.length ? ' ' + pos.join(', ') + '.' : ''}`;
+  const body = `<div class="wrap page"><nav class="crumbs"><a href="/journals/${j.slug}/">${esc(j.code)}</a> › <a href="/journals/${j.slug}/editorial-board/">Editorial Board</a> › <span>${esc(plainOf(p))}</span></nav>
+  <div class="pp">
+    <aside class="pp-side">
+      ${p.photo ? `<img class="pp-ph" src="${esc(p.photo)}" alt="${esc(plainOf(p))}" width="240" height="240">` : `<div class="pp-ph pp-ini" aria-hidden="true">${esc(plainOf(p).split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase())}</div>`}
+      ${p.orcid ? `<a class="orcidl pp-orcid" href="https://orcid.org/${esc(p.orcid)}" rel="noopener">${ORCID}${esc(p.orcid)}</a>` : ''}
+      ${links.length ? `<div class="pp-links">${links.map(([k, v]) => `<a href="${esc(v)}" rel="noopener">${ICONL[k]} ↗</a>`).join('')}</div>` : ''}
+      ${p.email ? `<a class="pp-mail" href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : ''}
+    </aside>
+    <div class="pp-main">
+      <span class="kicker" style="color:var(--accent)">${esc(p.role)} · ${esc(j.code)}</span>
+      <h1>${esc(p.name)}</h1>
+      ${pos.length ? `<p class="pp-pos">${pos.map(esc).join('<br>')}</p>` : ''}
+      ${p.address ? `<p class="pp-addr"><span class="lbl">Institutional address</span>${esc(p.address)}</p>` : ''}
+      ${p.bio ? `<section><h2>Biography</h2><div class="prose pp-bio">${String(p.bio).split(/\n{2,}|\r?\n/).filter(Boolean).map(x => `<p>${esc(x)}</p>`).join('')}</div></section>` : ''}
+      ${p.interests?.length ? `<section><h2>Research interests</h2><ul class="pp-tags">${p.interests.map(t => `<li>${esc(t)}</li>`).join('')}</ul></section>` : ''}
+      <section><h2>Editorial roles at ACRI Journals</h2><ul class="pp-roles">${serves.map(s => `<li><a href="${personUrl(s.j, s.q)}">${esc(s.q.role)}</a>, <a href="/journals/${s.j.slug}/"><i>${esc(s.j.name)}</i></a>${s.q.since ? ` <span class="meta">· since ${esc(s.q.since)}</span>` : ''}</li>`).join('')}</ul></section>
+      ${arts.length ? `<section><h2>Articles in ACRI Journals</h2><div class="pp-arts">${arts.map(a => itemCard(a)).join('')}</div></section>` : ''}
+      <p class="pp-note">Board members keep this page up to date through their AES profile. Peer-review and editorial work on individual manuscripts is confidential and is not listed. <a href="/journals/${j.slug}/editorial-board/">← Back to the editorial board</a></p>
+    </div>
+  </div></div>`;
+  return layout({ j, title: `${plainOf(p)} · Editorial Board`, desc, canonical: BASE + canon, body, head: `<meta property="og:type" content="profile"><meta property="og:title" content="${esc(plainOf(p))}">${p.photo ? `<meta property="og:image" content="${esc(BASE + p.photo)}">` : ''}<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` });
 }
 
 function journalAbout(j) {
@@ -812,6 +877,7 @@ async function main() {
     page(b + '/online-first/', onlineFirst(j));
     page(b + '/archive/', archivePage(j));
     page(b + '/editorial-board/', boardPage(j));
+    for (const p of boardOf(j)) if (p.slug) page(personUrl(j, p), personPage(j, p));
     page(b + '/about/', journalAbout(j));
     page(b + '/for-authors/', journalAuthors(j));
     const iss = issuesOf(j);

@@ -12,7 +12,8 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
+    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
+      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean) }; });
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
 function syncBoard_(slug) {
@@ -172,7 +173,7 @@ function appt_(token) {
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
-    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
@@ -188,7 +189,9 @@ function agreement_sign(p) {
     need_(String(pr.given || '').trim() && String(pr.family || '').trim(), 'Please enter your first and last name as they should appear on the board page.');
     prof.given = String(pr.given).trim(); prof.family = String(pr.family).trim();
   }
-  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, 600);
+  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, BIO_MAX);
+  Object.assign(prof, pageLinks_(pr));
+  if (pr.subjects !== undefined) prof.subjects = String(pr.subjects).split(/[;,]/).map(t => t.trim()).filter(Boolean).slice(0, 12);
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
@@ -254,3 +257,28 @@ Object.assign(TEMPLATES, {
   term_reminder: d => [`Your term as ${d.role} ends on ${d.end}`, `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> ends on <b>${d.end}</b> (${d.days} days from now).</p>${d.renewed ? '<p>A renewal has already been arranged. Please make sure you have signed the new agreement.</p>' : '<p>If you would like to continue, please reply to this email. The editorial office can send you a renewal. Otherwise, please hand over any manuscripts you are handling before your term ends.</p>'}<p>Thank you for your service to the journal.</p>`],
   term_ended: d => [d.revoked ? `Your appointment with ${d.journal} has ended` : `Thank you: your term as ${d.role} has ended`, d.revoked ? `<p>Dear ${esc_(d.name)},</p><p>Your appointment as ${esc_(d.role)} of ${esc_(d.journal)} has ended with effect from ${d.end}.</p>${d.reason ? quote_(d.reason) : ''}<p>Your confidentiality obligations continue.</p>` : `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> (${d.start} – ${d.end}) has come to an end. On behalf of the authors, reviewers and readers you have served, thank you.</p><p>Your <b>Certificate of Editorial Service</b> is attached. Your editorial access has closed, but your author and reviewer account remains active. Please remember that your confidentiality obligations continue.</p><p>We hope to work with you again.</p>`],
 });
+
+// ------------------------------------------------------------ personal board pages
+// Each board member gets a permanent page at /journals/<journal>/editorial-board/<pageSlug>/.
+// The slug is set once from the name and never changes, so shared links keep working.
+const BIO_MAX = 2000;
+function personSlug_(u) {
+  if (!u || !u.id) return '';
+  if (u.pageSlug) return u.pageSlug;
+  const base = String((u.given || '') + ' ' + (u.family || '')).toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-') || 'member';
+  const taken = {}; all_('Users').forEach(x => { if (x.pageSlug && x.id !== u.id) taken[x.pageSlug] = 1; });
+  let slug = base, n = 2; while (taken[slug]) slug = base + '-' + (n++);
+  update_('Users', 'id', u.id, { pageSlug: slug }); u.pageSlug = slug;
+  return slug;
+}
+function pageLinks_(p) {
+  const out = {};
+  [['scholarUrl', 'Google Scholar link'], ['linkedinUrl', 'LinkedIn link'], ['website', 'Website link']].forEach(([k, label]) => {
+    if (p[k] === undefined) return; const v = String(p[k]).trim();
+    need_(!v || /^https?:\/\/[^\s]+$/.test(v), label + ' must be a full address starting with https://');
+    out[k] = v;
+  });
+  if (p.showEmail !== undefined) out.showEmail = !!p.showEmail;
+  if (p.pageOff !== undefined) out.pageOff = !!p.pageOff;
+  return out;
+}

@@ -10,7 +10,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', bio: u.bio || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', bio: u.bio || '', scholarUrl: u.scholarUrl || '', linkedinUrl: u.linkedinUrl || '', website: u.website || '', showEmail: String(u.showEmail) === 'true', pageOff: String(u.pageOff) === 'true', pageSlug: u.pageSlug || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -126,7 +126,8 @@ function auth_profile(p, u) {
   const patch = {};
   ['given', 'family', 'degrees', 'affiliation', 'country', 'phone', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'].forEach(k => { if (p[k] !== undefined) patch[k] = String(p[k]).trim(); });
   if (patch.instEmail) instEmailOk_(patch.instEmail);
-  if (p.bio !== undefined) patch.bio = String(p.bio).trim().slice(0, 600);
+  if (p.bio !== undefined) patch.bio = String(p.bio).trim().slice(0, BIO_MAX);
+  Object.assign(patch, pageLinks_(p));
   if (p.orcid !== undefined) patch.orcid = String(p.orcid).replace(/^https?:\/\/orcid.org\//, '').trim();
   if (p.reviewer !== undefined) patch.reviewer = !!p.reviewer;
   Object.assign(patch, reviewPrefs_(p));
@@ -137,6 +138,6 @@ function auth_profile(p, u) {
     patch.salt = token_().slice(0, 16); patch.passHash = hashPw_(p.newPassword, patch.salt);
   }
   const out = update_('Users', 'id', u.id, patch);
-  if (['given', 'family', 'degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'bio', 'country'].some(k => patch[k] !== undefined)) { try { myJournals_(Object.assign({}, u, { roles: effectiveRoles_(u) })).forEach(s => syncBoard_(s)); } catch (e) { } }
+  if (['given', 'family', 'degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'bio', 'country', 'scholarUrl', 'linkedinUrl', 'website', 'showEmail', 'pageOff'].some(k => patch[k] !== undefined)) { try { myJournals_(Object.assign({}, u, { roles: effectiveRoles_(u) })).forEach(s => syncBoard_(s)); } catch (e) { } }
   return { ok: true, user: publicUser_(out) };
 }

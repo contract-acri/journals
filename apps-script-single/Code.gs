@@ -4,9 +4,7 @@
  * set the Script Properties, then run syncJournalsFromRepo() and selfTest().
  */
 
-// ======================================================================
-// 00_Config.gs
-// ======================================================================
+// ===== 00_Config.gs =====
 /**
  * ACRI Journals — Editorial Management System (Apps Script backend)
  * ------------------------------------------------------------------
@@ -56,7 +54,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 
 /** Sheet schema. Columns are created by setup(); add new columns at the END only. */
 const SCHEMA = {
-  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio'],
+  Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio', 'pageSlug', 'scholarUrl', 'linkedinUrl', 'website', 'showEmail', 'pageOff'],
   Sessions: ['token', 'userId', 'expires', 'created'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
@@ -119,9 +117,7 @@ const FILE_KINDS = {
   proof_corrections: 'Proof corrections',
 };
 
-// ======================================================================
-// 01_Db.gs
-// ======================================================================
+// ===== 01_Db.gs =====
 /** Minimal table layer over Google Sheets. Rows are plain objects keyed by header. */
 
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet() || SpreadsheetApp.openById(prop_('SHEET_ID')); }
@@ -206,9 +202,7 @@ function log_(subId, userId, action, detail, authorVisible) {
   insert_('Activity', { ts: now_(), subId: subId, userId: userId || 'system', action: action, detail: detail || '', author: authorVisible ? 'yes' : '' });
 }
 
-// ======================================================================
-// 02_Auth.gs
-// ======================================================================
+// ===== 02_Auth.gs =====
 /** Accounts, sessions and roles. One account works across all journals.
  *  roles JSON: { admin: true, eic: ["ijbmrs"], board: ["ijbmrs","ijelf"] }  (author is implicit) */
 
@@ -221,7 +215,7 @@ function normEmail_(e) { return String(e || '').trim().toLowerCase(); }
 function publicUser_(u) {
   if (!u) return null;
   if (u.roles && !Array.isArray(u.roles.senior)) { try { u = Object.assign({}, u, { roles: effectiveRoles_(u) }); } catch (e) { } }
-  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', bio: u.bio || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
+  return { id: u.id, email: u.email, given: u.given, family: u.family, name: (u.given + ' ' + u.family).trim(), degrees: u.degrees, affiliation: u.affiliation, country: u.country, orcid: u.orcid, phone: u.phone, reviewer: String(u.reviewer) === 'true' || u.reviewer === true, subjects: u.subjects || [], designation: u.designation || '', department: u.department || '', instAddress: u.instAddress || '', profileUrl: u.profileUrl || '', instEmail: u.instEmail || '', reviewDays: Number(u.reviewDays) || 21, reviewMax: Number(u.reviewMax) || 2, reviewPauseUntil: u.reviewPauseUntil ? String(u.reviewPauseUntil).slice(0, 10) : '', reviewNote: u.reviewNote || '', hasSignature: !!u.signatureFileId, photo: u.photo || '', bio: u.bio || '', scholarUrl: u.scholarUrl || '', linkedinUrl: u.linkedinUrl || '', website: u.website || '', showEmail: String(u.showEmail) === 'true', pageOff: String(u.pageOff) === 'true', pageSlug: u.pageSlug || '', roles: u.roles || {}, verified: String(u.verified) === 'true' || u.verified === true };
 }
 function nameOf_(u) { return u ? (u.given + ' ' + u.family).trim() : ''; }
 
@@ -337,7 +331,8 @@ function auth_profile(p, u) {
   const patch = {};
   ['given', 'family', 'degrees', 'affiliation', 'country', 'phone', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail'].forEach(k => { if (p[k] !== undefined) patch[k] = String(p[k]).trim(); });
   if (patch.instEmail) instEmailOk_(patch.instEmail);
-  if (p.bio !== undefined) patch.bio = String(p.bio).trim().slice(0, 600);
+  if (p.bio !== undefined) patch.bio = String(p.bio).trim().slice(0, BIO_MAX);
+  Object.assign(patch, pageLinks_(p));
   if (p.orcid !== undefined) patch.orcid = String(p.orcid).replace(/^https?:\/\/orcid.org\//, '').trim();
   if (p.reviewer !== undefined) patch.reviewer = !!p.reviewer;
   Object.assign(patch, reviewPrefs_(p));
@@ -348,13 +343,11 @@ function auth_profile(p, u) {
     patch.salt = token_().slice(0, 16); patch.passHash = hashPw_(p.newPassword, patch.salt);
   }
   const out = update_('Users', 'id', u.id, patch);
-  if (['given', 'family', 'degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'bio', 'country'].some(k => patch[k] !== undefined)) { try { myJournals_(Object.assign({}, u, { roles: effectiveRoles_(u) })).forEach(s => syncBoard_(s)); } catch (e) { } }
+  if (['given', 'family', 'degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'bio', 'country', 'scholarUrl', 'linkedinUrl', 'website', 'showEmail', 'pageOff'].some(k => patch[k] !== undefined)) { try { myJournals_(Object.assign({}, u, { roles: effectiveRoles_(u) })).forEach(s => syncBoard_(s)); } catch (e) { } }
   return { ok: true, user: publicUser_(out) };
 }
 
-// ======================================================================
-// 03_Integrations.gs
-// ======================================================================
+// ===== 03_Integrations.gs =====
 /** External services: Google Drive (files), GitHub (publishing), Zenodo (DOIs), ZeptoMail (email). */
 
 // ============================== Drive ==============================
@@ -582,9 +575,7 @@ function sendMail_(to, subject, html, opts) {
   insert_('EmailLog', { ts: now_(), to: list.map(x => x.email_address.address).join(', '), subject: subject, status: status, detail: (via ? '[' + via + '] ' : '') + detail });
 }
 
-// ======================================================================
-// 04_Emails.gs
-// ======================================================================
+// ===== 04_Emails.gs =====
 /** Branded transactional emails, sent through ZeptoMail. Edit wording here. */
 
 function emailShell_(accent, journalName, inner) {
@@ -659,9 +650,7 @@ function mailTemplate_(key, to, data, ctx) {
   sendMail_(to, subject, emailShell_(data.accent, j ? j.name : '', inner), Object.assign(snd, { cc: ctx.cc, attachments: ctx.attachments }));
 }
 
-// ======================================================================
-// 05_Workflow.gs
-// ======================================================================
+// ===== 05_Workflow.gs =====
 /** Editorial workflow: submission → technical check → editor → peer review → decision → production. */
 
 // ------------------------------------------------------------ journals
@@ -1102,9 +1091,7 @@ function dailyReminders() {
 }
 function normEmail(e) { return normEmail_(e); }
 
-// ======================================================================
-// 06_Production.gs
-// ======================================================================
+// ===== 06_Production.gs =====
 /** Production: send to GitHub → automatic conversion → proofs → publish → Zenodo DOI registration. */
 
 function artPath_(s) { return 'content/articles/' + s.journal + '/' + s.id; }
@@ -1224,9 +1211,7 @@ function prod_reserveDoi(p, u) {
   return { ok: true, doi: z.doi };
 }
 
-// ======================================================================
-// 07_Admin.gs
-// ======================================================================
+// ===== 07_Admin.gs =====
 /** Administration: journals, editorial boards, roles, issues, subscribers, diagnostics. */
 
 function adm_overview(p, u) {
@@ -1322,9 +1307,8 @@ function adm_rebuild(p, u) {
   return { ok: true };
 }
 
-// ======================================================================
-// 08_Api.gs
-// ======================================================================
+
+// ===== 08_Api.gs =====
 /** HTTP entry points. The portal sends POST with Content-Type text/plain (no CORS preflight). */
 
 const PUBLIC = {
@@ -1404,9 +1388,7 @@ function doGet(e) {
 }
 function json_(o) { o.aes = AES.VERSION; return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
-// ======================================================================
-// 09_Setup.gs
-// ======================================================================
+// ===== 09_Setup.gs =====
 /** One-time setup. Run setup() from the Apps Script editor after pasting all files. */
 
 function setup() {
@@ -1545,9 +1527,7 @@ function quickAdmin() {
   Logger.log('Admin ready: ' + EMAIL + ' — sign in at ' + portalUrl_('login'));
 }
 
-// ======================================================================
-// 10_Team.gs
-// ======================================================================
+// ===== 10_Team.gs =====
 /** Editorial team: appointments (EIC / Senior Editor / Editor / Board), e-signed agreements,
  *  term reminders, automatic term ending, certificates of service, and the public board page. */
 
@@ -1562,7 +1542,8 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
   const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
-    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: mail || '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4) }; });
+    .map(a => { const u = users[a.userId] || {}; const mail = u.instEmail || (PERSONAL_MAIL.test(u.email || '') ? '' : u.email); const off = String(u.pageOff) === 'true';
+      return { role: roleLabel_(a), group: ROLES[a.role].plural, photo: u.photo || '', bio: u.bio || '', name: (u.given + ' ' + u.family).trim() + (u.degrees ? ', ' + u.degrees : ''), plainName: (u.given + ' ' + u.family).trim(), designation: u.designation || '', department: u.department || '', affiliation: u.affiliation || '', address: u.instAddress || '', email: String(u.showEmail) === 'true' ? (mail || '') : '', profile: u.profileUrl || '', country: u.country || '', orcid: u.orcid || '', since: String(a.start || '').slice(0, 4), slug: off ? '' : personSlug_(u), scholar: u.scholarUrl || '', linkedin: u.linkedinUrl || '', website: u.website || '', interests: Array.isArray(u.subjects) ? u.subjects : String(u.subjects || '').split(/[;,]/).map(x => x.trim()).filter(Boolean) }; });
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
 function syncBoard_(slug) {
@@ -1722,7 +1703,7 @@ function appt_(token) {
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
   return { ok: true, agreement: { status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
-    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India' },
+    profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
 function agreement_sign(p) {
@@ -1738,7 +1719,9 @@ function agreement_sign(p) {
     need_(String(pr.given || '').trim() && String(pr.family || '').trim(), 'Please enter your first and last name as they should appear on the board page.');
     prof.given = String(pr.given).trim(); prof.family = String(pr.family).trim();
   }
-  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, 600);
+  if (pr.bio !== undefined) prof.bio = String(pr.bio).trim().slice(0, BIO_MAX);
+  Object.assign(prof, pageLinks_(pr));
+  if (pr.subjects !== undefined) prof.subjects = String(pr.subjects).split(/[;,]/).map(t => t.trim()).filter(Boolean).slice(0, 12);
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
@@ -1805,9 +1788,32 @@ Object.assign(TEMPLATES, {
   term_ended: d => [d.revoked ? `Your appointment with ${d.journal} has ended` : `Thank you: your term as ${d.role} has ended`, d.revoked ? `<p>Dear ${esc_(d.name)},</p><p>Your appointment as ${esc_(d.role)} of ${esc_(d.journal)} has ended with effect from ${d.end}.</p>${d.reason ? quote_(d.reason) : ''}<p>Your confidentiality obligations continue.</p>` : `<p>Dear ${esc_(d.name)},</p><p>Your term as <b>${esc_(d.role)}</b> of <b>${esc_(d.journal)}</b> (${d.start} – ${d.end}) has come to an end. On behalf of the authors, reviewers and readers you have served, thank you.</p><p>Your <b>Certificate of Editorial Service</b> is attached. Your editorial access has closed, but your author and reviewer account remains active. Please remember that your confidentiality obligations continue.</p><p>We hope to work with you again.</p>`],
 });
 
-// ======================================================================
-// 11_Mailing.gs
-// ======================================================================
+// ------------------------------------------------------------ personal board pages
+// Each board member gets a permanent page at /journals/<journal>/editorial-board/<pageSlug>/.
+// The slug is set once from the name and never changes, so shared links keep working.
+const BIO_MAX = 2000;
+function personSlug_(u) {
+  if (!u || !u.id) return '';
+  if (u.pageSlug) return u.pageSlug;
+  const base = String((u.given || '') + ' ' + (u.family || '')).toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, '').trim().replace(/[\s_]+/g, '-').replace(/-+/g, '-') || 'member';
+  const taken = {}; all_('Users').forEach(x => { if (x.pageSlug && x.id !== u.id) taken[x.pageSlug] = 1; });
+  let slug = base, n = 2; while (taken[slug]) slug = base + '-' + (n++);
+  update_('Users', 'id', u.id, { pageSlug: slug }); u.pageSlug = slug;
+  return slug;
+}
+function pageLinks_(p) {
+  const out = {};
+  [['scholarUrl', 'Google Scholar link'], ['linkedinUrl', 'LinkedIn link'], ['website', 'Website link']].forEach(([k, label]) => {
+    if (p[k] === undefined) return; const v = String(p[k]).trim();
+    need_(!v || /^https?:\/\/[^\s]+$/.test(v), label + ' must be a full address starting with https://');
+    out[k] = v;
+  });
+  if (p.showEmail !== undefined) out.showEmail = !!p.showEmail;
+  if (p.pageOff !== undefined) out.pageOff = !!p.pageOff;
+  return out;
+}
+
+// ===== 11_Mailing.gs =====
 /** Email lists, campaigns (newsletters, calls for papers, outreach), automations and unsubscribe handling.
  *
  *  Campaigns go through ZeptoMail by default (CAMPAIGN_PROVIDER = zepto) or Brevo (CAMPAIGN_PROVIDER = brevo).
@@ -2179,9 +2185,7 @@ Object.assign(TEMPLATES, {
   subscribe: d => ['Please confirm your subscription', `<p>Please confirm that you would like to receive updates from <b>${esc_(d.list || 'ACRI Journals')}</b>: new articles, issues and calls for papers.</p>${btn_(d.link, 'Confirm subscription')}<p style="color:#5E6875;font-size:13px">If you did not sign up, ignore this email. You will not be subscribed.</p>`],
 });
 
-// ======================================================================
-// 12_Partners.gs
-// ======================================================================
+// ===== 12_Partners.gs =====
 /** Partner registration: public application → admin approval → listed on /partners/. */
 
 const PARTNER_TYPES = ['Academic partner', 'Indexing & archiving partner', 'Institutional partner', 'Industry partner', 'Media partner', 'Professional body'];
@@ -2229,9 +2233,7 @@ Object.assign(TEMPLATES, {
   partner_rejected: d => ['Your partnership application', `<p>Dear ${esc_(d.name)},</p><p>Thank you for your interest in partnering with ACRI Journals. After careful consideration, we are unable to take forward the application from <b>${esc_(d.org)}</b> at this time.</p>${d.note ? quote_(d.note) : ''}<p>We wish you every success.</p>`],
 });
 
-// ======================================================================
-// 13_BackIssues.gs
-// ======================================================================
+// ===== 13_BackIssues.gs =====
 /** Back issues: bring previously published articles (e.g. IJBMRS Vol. 1–2) into ACRI Journals,
  *  edit them, and register new Zenodo DOIs that keep the ORIGINAL publication date and link the
  *  previous DOI (DataCite relation IsIdenticalTo). */
@@ -2376,9 +2378,7 @@ function bi_registerDoi(p, u) {
   return { ok: true, doi: dep.doi, previousDoi: a.previousDoi || '', url: (dep.links && (dep.links.record_html || dep.links.html)) || '' };
 }
 
-// ======================================================================
-// 14_Indexing.gs
-// ======================================================================
+// ===== 14_Indexing.gs =====
 /** ISSN & indexing readiness.
  *  For every journal the system checks the ISSN India (NSL, CSIR-NIScPR) rules, the DOAJ / COPE-OASPA-WAME
  *  Principles of Transparency (v5), Google Scholar, Web of Science (ESCI) and Scopus expectations.
@@ -2581,9 +2581,7 @@ Object.assign(TEMPLATES, {
   issn_eb_notice: d => [`Please watch for an ISSN verification email: ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>We have applied to the ISSN National Centre India (National Science Library, CSIR-NIScPR) for an ISSN for <b>${esc_(d.journal)}</b>, on whose Editorial Board you serve.</p><p>The ISSN office may email some Editorial Board members to verify their membership. <b>If you receive such an email, please reply within 3 days</b>, otherwise the application can be declined. Please also check your spam folder.</p><p>Thank you for your support.</p>`],
 });
 
-// ======================================================================
-// 15_Messages.gs
-// ======================================================================
+// ===== 15_Messages.gs =====
 /** Contact messages for the journal office (controller) and Editors-in-Chief.
  *  Sent from the website's contact form, stored in the "Messages" sheet and handled in the portal
  *  (Admin → Messages). They are NOT emailed to the office or the EIC. Only the reply to the sender goes by email. */
@@ -2648,9 +2646,7 @@ function msg_update(p, u) {
   return { ok: true };
 }
 
-// ======================================================================
-// 16_Settings.gs
-// ======================================================================
+// ===== 16_Settings.gs =====
 /** Admin → Settings: every integration key (Script properties) and the public website details
  *  (config/site.json in GitHub) managed from the portal. Secrets are write-only: the portal only
  *  ever sees whether they are set and their last 4 characters. */
@@ -2764,9 +2760,7 @@ function set_test(p, u) {
   return { ok: true, checks: r };
 }
 
-// ======================================================================
-// 17_Letters.gs
-// ======================================================================
+// ===== 17_Letters.gs =====
 /** Letterhead documents, signatories, certificates of publication and admin email.
  *
  *  - Signatories: people who sign letters and certificates (e.g. the Chairperson or the President of ACRI),
@@ -2980,9 +2974,7 @@ function mail_compose(p, u) {
 }
 function mail_sent(p, u) { need_(isAdmin_(u), 'Admins only.'); return { ok: true, items: all_('SentMail').map(x => { delete x._row; return x; }).reverse().slice(0, 200) }; }
 
-// ======================================================================
-// 18_Board.gs
-// ======================================================================
+// ===== 18_Board.gs =====
 /** Editorial board tools: importing an existing board, reviewing preferences, recommendations
  *  and personal letterheads for board members. */
 
@@ -3089,4 +3081,3 @@ function me_photo(p, u) {
   myJournals_(u).forEach(s => { try { syncBoard_(s); } catch (e) { } });
   return { ok: true, message: 'Photo saved. The board page updates in a few minutes.' };
 }
-
