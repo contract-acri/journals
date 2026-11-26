@@ -115,9 +115,9 @@ function readiness_(slug) {
     stats: { articles: idx.length, issues: Object.keys(byIssue).length, eb: eb.length, foreignEb: foreign.length } };
 }
 
-function idx_readiness(p, u) { need_(isAdmin_(u) || isEic_(u, p.journal), 'Not allowed.'); return { ok: true, r: readiness_(p.journal), stages: ISSN_STAGES }; }
+function idx_readiness(p, u) { need_(isAdmin_(u) || isLead_(u, p.journal), 'Not allowed.'); return { ok: true, r: readiness_(p.journal), stages: ISSN_STAGES }; }
 function idx_tick(p, u) {
-  need_(isAdmin_(u) || isEic_(u, p.journal), 'Not allowed.');
+  need_(isAdmin_(u) || isLead_(u, p.journal), 'Not allowed.');
   const r = find_('Journals', 'slug', p.journal); const json = Object.assign({}, r.json || {});
   json.readinessManual = Object.assign({}, json.readinessManual || {}, { [p.key]: !!p.ok });
   update_('Journals', 'slug', p.journal, { json: json, updated: now_() }); CacheService.getScriptCache().remove('J:' + p.journal);
@@ -187,12 +187,13 @@ function onIssueForIssn_(journal, volume, issue) {
 
 /** Logo upload: kind = logo | mark | logo-white | mark-white; png or svg. Empty data removes it (back to generated). */
 function adm_logo(p, u) {
-  need_(isAdmin_(u), 'Not allowed.');
-  need_(['logo', 'mark', 'logo-white', 'mark-white'].indexOf(p.kind) >= 0, 'Unknown logo type.');
+  need_(isAdmin_(u) || (isLead_(u, p.journal) && (journalRow_(p.journal) || {}).partner), 'Not allowed.');
+  need_(['logo', 'mark', 'logo-white', 'mark-white', 'inst'].indexOf(p.kind) >= 0, 'Unknown logo type.');
   const ext = /svg/i.test(p.mime || p.name || '') ? 'svg' : 'png', base = 'content/journals/' + p.journal + '/' + p.kind;
   const files = p.data ? [{ path: base + '.' + ext, bytes: Utilities.base64Decode(p.data) }] : [{ path: base + '.png', delete: true }];
   if (p.data && ext === 'png') files.push({ path: base + '.svg', delete: true });
   ghCommit_(files, (p.data ? 'Logo uploaded: ' : 'Logo removed: ') + p.journal + ' ' + p.kind);
+  if (p.kind === 'inst') { const r = find_('Journals', 'slug', p.journal); if (r) { update_('Journals', 'slug', p.journal, { json: Object.assign({}, r.json, { instLogo: !!p.data }) }); CacheService.getScriptCache().remove('J:' + p.journal); } }
   return { ok: true, message: 'Saved. The website updates in a few minutes.' };
 }
 

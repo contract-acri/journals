@@ -68,8 +68,8 @@ function mail_lists(p, u) {
   ['network'].concat(all_('Journals').map(j => j.slug)).forEach(k => { counts[k] = counts[k] || { list: k, name: listName_(k), subscribed: 0, pending: 0, unsubscribed: 0, bounced: 0 }; });
   return { ok: true, lists: Object.values(counts) };
 }
-function anyEic_(u) { return (u.roles.eic || []).length > 0; }
-function mailScope_(u, journal) { need_(isAdmin_(u) || (journal && isEic_(u, journal)), 'Only admins, or the EIC for their own journal, can manage email.'); }
+function anyEic_(u) { return (u.roles.eic || []).length > 0 || (u.roles.jadmin || []).length > 0; }
+function mailScope_(u, journal) { need_(isAdmin_(u) || (journal && isLead_(u, journal)), 'Only admins, or the EIC for their own journal, can manage email.'); }
 
 function mail_contacts(p, u) {
   mailScope_(u, p.list !== 'network' ? p.list : null);
@@ -106,7 +106,7 @@ function mail_setContact(p, u) {
 // ------------------------------------------------------------ campaigns
 function mail_campaigns(p, u) {
   need_(isAdmin_(u) || anyEic_(u), 'Not allowed.');
-  return { ok: true, presets: PRESETS, items: all_('Campaigns').filter(c => isAdmin_(u) || isEic_(u, c.journal)).map(c => ({ id: c.id, journal: c.journal, name: c.name, subject: c.subject, preset: c.preset, status: c.status, scheduledAt: c.scheduledAt, sentAt: c.sentAt, stats: c.stats || {}, updated: c.updated, audience: c.audience, sender: c.sender, preheader: c.preheader, content: c.content })).reverse() };
+  return { ok: true, presets: PRESETS, items: all_('Campaigns').filter(c => isAdmin_(u) || isLead_(u, c.journal)).map(c => ({ id: c.id, journal: c.journal, name: c.name, subject: c.subject, preset: c.preset, status: c.status, scheduledAt: c.scheduledAt, sentAt: c.sentAt, stats: c.stats || {}, updated: c.updated, audience: c.audience, sender: c.sender, preheader: c.preheader, content: c.content })).reverse() };
 }
 function mail_saveCampaign(p, u) {
   const c = p.campaign || {}; mailScope_(u, c.journal || null);
@@ -310,7 +310,7 @@ function seedAutomations_(slug) {
 function mail_automations(p, u) {
   need_(isAdmin_(u) || anyEic_(u), 'Not allowed.');
   all_('Journals').forEach(j => seedAutomations_(j.slug)); seedAutomations_('network');
-  return { ok: true, types: AUTOMATION_TYPES, items: all_('Automations').filter(a => isAdmin_(u) || isEic_(u, a.journal)).map(a => ({ id: a.id, journal: a.journal, type: a.type, name: a.name, enabled: String(a.enabled) !== 'false', everyDays: a.everyDays, campaignId: a.campaignId, endDate: a.endDate, nextRun: a.nextRun, lastRun: a.lastRun, config: a.config || {} })) };
+  return { ok: true, types: AUTOMATION_TYPES, items: all_('Automations').filter(a => isAdmin_(u) || isLead_(u, a.journal)).map(a => ({ id: a.id, journal: a.journal, type: a.type, name: a.name, enabled: String(a.enabled) !== 'false', everyDays: a.everyDays, campaignId: a.campaignId, endDate: a.endDate, nextRun: a.nextRun, lastRun: a.lastRun, config: a.config || {} })) };
 }
 function mail_saveAutomation(p, u) {
   const a = find_('Automations', 'id', p.id); need_(a, 'Automation not found.'); mailScope_(u, a.journal !== 'network' ? a.journal : null);

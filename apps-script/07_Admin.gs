@@ -31,13 +31,27 @@ function adm_setRoles(p, u) {
 }
 
 function adm_journals(p, u) {
-  need_(isAdmin_(u));
-  return { ok: true, items: all_('Journals').map(r => Object.assign(journalRow_(r.slug), { issues: where_('Issues', i => i.journal === r.slug) })) };
+  const mine = all_('Journals').filter(r => isAdmin_(u) || (isLead_(u, r.slug) && (r.json || {}).partner));
+  need_(isAdmin_(u) || mine.length, 'Not allowed.');
+  return { ok: true, items: mine.map(r => Object.assign(journalRow_(r.slug), { issues: where_('Issues', i => i.journal === r.slug) })) };
 }
 /** Save a journal (new or existing): updates the sheet AND commits journal.json so the website updates. */
 function adm_saveJournal(p, u) {
-  need_(isAdmin_(u));
   const j = p.journal;
+  const existing = find_('Journals', 'slug', j.slug || '');
+  const lead = !isAdmin_(u);
+  if (lead) {
+    need_(existing && (existing.json || {}).partner && isLead_(u, j.slug), 'Only an ACRI Journals admin can change this journal.');
+    // A hosted journal's own team cannot change what ACRI controls.
+    const pj = existing.json || {};
+    Object.assign(j, { partner: true, active: pj.active !== false, order: pj.order, serialStart: pj.serialStart, partnerStatus: pj.partnerStatus, boardExtra: pj.boardExtra || [], officeEmail: pj.officeEmail, editorEmail: pj.editorEmail, noReplyEmail: pj.noReplyEmail });
+  }
+  if (j.partner) {
+    need_(/^[A-Z][A-Z0-9]{1,11}$/.test(String(j.code || '').toUpperCase()), 'The acronym (code) must be 2–12 capital letters or numbers, e.g. "JSRS".');
+    const clash = all_('Journals').find(r => r.slug !== j.slug && String(r.code).toUpperCase() === String(j.code).toUpperCase());
+    need_(!clash, 'Another journal already uses the acronym ' + String(j.code).toUpperCase() + '. Choose a different one.');
+    need_(j.publisher && String(j.publisher.name || '').trim(), 'Enter the publishing institution (school or university).');
+  }
   need_(/^[a-z0-9-]{2,20}$/.test(j.slug || ''), 'Slug must be 2–20 lowercase letters/numbers, e.g. "ijelf".');
   need_(j.code && j.name, 'Code and name are required.');
   const prev = (find_('Journals', 'slug', j.slug) || {}).json || {};
@@ -52,6 +66,9 @@ function adm_saveJournal(p, u) {
     issnOnline: j.issnOnline !== undefined ? j.issnOnline : (prev.issnOnline || ''), issnPrint: j.issnPrint !== undefined ? j.issnPrint : (prev.issnPrint || ''),
     issnStatus: Object.assign({ online: (j.issnOnline || prev.issnOnline) ? 'assigned' : 'not_applied', print: 'not_applicable' }, prev.issnStatus || {}, j.issnOnline && !prev.issnOnline ? { online: 'assigned' } : {}),
     logoColor: j.accent || prev.logoColor, order: Number(j.order) || prev.order || 99, serialStart: j.serialStart || prev.serialStart || {},
+    partner: !!(j.partner !== undefined ? j.partner : prev.partner), schoolJournal: !!(j.schoolJournal !== undefined ? j.schoolJournal : prev.schoolJournal),
+    publisher: j.publisher ? { name: String(j.publisher.name || '').trim(), address: String(j.publisher.address || '').trim(), website: String(j.publisher.website || '').trim(), email: normEmail_(j.publisher.email || ''), phone: String(j.publisher.phone || '').trim(), type: j.publisher.type || '' } : (prev.publisher || null),
+    partnerStatus: j.partnerStatus || prev.partnerStatus || (j.partner ? 'setup' : ''),
   });
   json.editorialEmail = json.officeEmail;
   json.board = boardFor_(json.slug, json.boardExtra);
@@ -66,8 +83,8 @@ function adm_saveJournal(p, u) {
 }
 
 function adm_saveIssue(p, u) {
-  need_(isAdmin_(u));
-  const i = p.issue; need_(i.journal && i.volume && i.issue, 'Journal, volume and issue are required.');
+  const i = p.issue;
+  need_(isAdmin_(u) || (i && isLead_(u, i.journal) && (journalRow_(i.journal) || {}).partner), 'Not allowed.'); need_(i.journal && i.volume && i.issue, 'Journal, volume and issue are required.');
   const ex = where_('Issues', x => x.journal === i.journal && String(x.volume) === String(i.volume) && String(x.issue) === String(i.issue))[0];
   const newlyPublished = i.status === 'published' && (!ex || ex.status !== 'published');
   const sh = sh_('Issues');

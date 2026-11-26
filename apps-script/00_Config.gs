@@ -49,6 +49,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 const SCHEMA = {
   Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio', 'pageSlug', 'scholarUrl', 'linkedinUrl', 'website', 'showEmail', 'pageOff'],
   Sessions: ['token', 'userId', 'expires', 'created'],
+  HostApps: ['id', 'created', 'status', 'institution', 'instType', 'city', 'country', 'website', 'address', 'contactName', 'contactRole', 'contactEmail', 'phone', 'journalName', 'acronym', 'scope', 'subjects', 'frequency', 'audience', 'eicName', 'eicEmail', 'adminEmail', 'notes', 'decidedBy', 'decidedAt', 'decisionNote', 'journal'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
   Files: ['id', 'subId', 'version', 'kind', 'name', 'mime', 'size', 'driveId', 'pdfId', 'uploadedBy', 'created', 'active'],
@@ -102,6 +103,7 @@ const ROLES = {
   editor: { label: 'Editor', plural: 'Editors', rank: 3 },
   board: { label: 'Editorial Board Member', plural: 'Editorial Board', rank: 4 },
   mgmt: { label: 'Management Team', plural: 'Management team', rank: 0 },
+  jadmin: { label: 'Journal Admin', plural: 'Journal administration', rank: 0.5 },
 };
 /** The ACRI Journals management team is kept as appointments to this pseudo-journal. It gives no editorial rights. */
 const NETWORK = '_network';

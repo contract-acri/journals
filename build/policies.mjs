@@ -1,6 +1,6 @@
 // ACRI Journals — policy suite. Each policy becomes /policies/<slug>/.
 // Edit wording here; bump site.policyVersion / policyEffective in config/site.json when you change a policy.
-export const POLICY_GROUPS = ['Legal & privacy', 'Publishing', 'Research integrity', 'Governance & operations'];
+export const POLICY_GROUPS = ['Legal & privacy', 'Publishing', 'Research integrity', 'Governance & operations', 'Journal hosting'];
 
 export function policies(site) {
   const E = site.email, P = site.privacyEmail || E, G = site.grievanceEmail || E, ENT = site.legalEntity || 'ACRI Journals';
@@ -251,6 +251,70 @@ ${site.fees && site.fees.confirmed && !(Number(site.fees.apc) > 0)
 <li>We ask authors to use inclusive, bias-free language and to report the demographics of research participants appropriately.</li>
 <li>We do not charge fees that would exclude authors with limited resources. See the <a href="/policies/fees/">fees policy</a>.</li>
 <li>Our website and articles aim to meet WCAG 2.2 AA. See the <a href="/policies/accessibility/">accessibility statement</a>.</li></ul>` },
+// ------------------------------------------------------------------ Journal hosting (schools, colleges, universities)
+{ slug: 'journal-hosting', group: 'Journal hosting', title: 'Journal Hosting Policy', summary: 'How schools, colleges and universities can run their own journal on ACRI Journals, free of charge.', html: `
+<p>ACRI Journals hosts peer-reviewed, open-access journals run by schools, colleges, universities and research institutes. Hosting is <b>free of charge</b>. This policy explains who can apply, what we provide and the standards every hosted journal must meet.</p>
+<h2>1. Who can apply</h2>
+<ul><li>Recognised schools, colleges, universities and research institutes, and departments or centres within them.</li>
+<li>The application must come from a member of staff using an official institutional email address, with the approval of the head of the institution or department.</li>
+<li>Applications from individuals, commercial publishers or organisations that charge authors for publication are not accepted.</li></ul>
+<h2>2. What ACRI Journals provides</h2>
+<ul><li>A journal website at <code>acriindia.org.in/journals/&lt;journal&gt;/</code>, with the journal's name, colours and the institution's logo.</li>
+<li>The ACRI Editorial System (AES) for submission, double-blind peer review, decisions, production and publication, with a branded sign-in page for the journal.</li>
+<li>Typeset article pages and PDFs, article-level metadata for Google Scholar and indexers, DOIs through Zenodo (CERN), and long-term preservation.</li>
+<li>Guidance and a ready-made pack for the institution's ISSN application.</li></ul>
+<h2>3. What the institution provides</h2>
+<ul><li>A <b>Journal Admin</b> from its staff, who runs the journal's settings, editorial team and issues in AES.</li>
+<li>A qualified <b>Editor-in-Chief</b> and an <b>editorial board</b> of at least five members with their full designation, institution and address.</li>
+<li>A clear aims and scope, a publication frequency and a postal address for the publisher.</li></ul>
+<h2>4. Standards every hosted journal must meet</h2>
+<ul><li>Every research article is peer reviewed by at least two independent reviewers, under the ACRI Journals <a href="/policies/peer-review/">peer review</a>, <a href="/policies/ethics/">ethics</a> and <a href="/policies/plagiarism/">similarity checking</a> policies and the COPE Core Practices.</li>
+<li>Articles are open access under CC BY 4.0, and authors keep copyright.</li>
+<li>No author is charged any fee for submission, review or publication.</li>
+<li>Decisions on manuscripts are made by the journal's editors on merit, under the <a href="/policies/editorial-independence/">editorial independence</a> policy.</li></ul>
+<h2>5. How to apply</h2>
+<p>Apply through <a href="/start-a-journal/">Start a journal</a>. We review each proposal and reply, usually within two weeks. If approved, AES creates the journal and sends the Journal Admin and Editor-in-Chief personal links to set it up. ACRI Journals may also set up a hosted journal directly at an institution's request.</p>
+<h2>6. Going live</h2>
+<p>A hosted journal can publish articles only when it meets the ISSN India requirements listed in the <a href="/policies/issn-and-publisher/">ISSN and publisher responsibilities</a>. AES checks this automatically.</p>` },
+{ slug: 'partner-journal-terms', group: 'Journal hosting', title: 'Hosted Journal Terms', summary: 'The terms between ACRI Journals and an institution whose journal it hosts.', html: `
+<p>These terms apply between ACRI Journals, operated by ${ENT}, and each institution whose journal it hosts ("the Institution"). The Journal Admin accepts them on behalf of the Institution when signing their appointment in AES.</p>
+<h2>1. The service</h2><p>ACRI Journals provides the hosting service described in the <a href="/policies/journal-hosting/">Journal Hosting Policy</a>, free of charge, for as long as both parties agree. ACRI Journals may improve or change the platform, keeping the journal's published record intact.</p>
+<h2>2. No fees</h2><p>ACRI Journals charges the Institution nothing for hosting. The Institution may not charge authors any submission, processing or publication fee for the hosted journal.</p>
+<h2>3. The Institution's commitments</h2><ul><li>Act as publisher of the journal, hold its ISSN and keep its publisher details accurate.</li><li>Keep a Journal Admin, an Editor-in-Chief and an editorial board in place.</li><li>Follow the ACRI Journals editorial, ethics and data protection policies.</li><li>Respond to correspondence from ACRI Journals within a reasonable time.</li></ul>
+<h2>4. Accounts and access</h2><p>Everyone uses an ACRI One account. The Journal Admin and the editors can see only their own journal. ACRI Journals administrators can access every hosted journal to maintain the service and uphold these terms.</p>
+<h2>5. Content and responsibility</h2><p>The Institution is responsible for the content of its journal and the decisions of its editors. ACRI Journals is responsible for running the platform with reasonable care.</p>
+<h2>6. Ending hosting</h2><p>Either party may end hosting with 60 days' written notice. See <a href="/policies/hosting-suspension-and-exit/">Suspension, termination and exit</a>.</p>
+<h2>7. Governing law</h2><p>These terms are governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat.</p>` },
+{ slug: 'issn-and-publisher', group: 'Journal hosting', title: 'ISSN and Publisher Responsibilities', summary: 'The institution is the publisher and holds the ISSN; what the journal website must show.', html: `
+<p>In India, ISSNs are assigned by the ISSN National Centre for India at the National Science Library, CSIR-NIScPR, to the <b>publisher</b> of a serial. For a hosted journal, the publisher is the Institution, so the Institution applies for and holds the ISSN in its own name. ACRI Journals is named only as the hosting platform.</p>
+<h2>1. What the journal website must show</h2>
+<p>Before a hosted journal can publish articles, AES checks that its website shows everything ISSN India and indexing services look for:</p>
+<ul><li>The full journal title, acronym and ISO 4 abbreviation.</li><li>Aims and scope, and publication frequency.</li><li>The publisher's name, full postal address and an email or website.</li><li>An Editor-in-Chief and an editorial board of at least five members, each with designation, institution and address.</li><li>The open-access licence and copyright statement (added automatically).</li><li>The ISSN, once assigned (added from the journal's settings).</li></ul>
+<h2>2. Applying for the ISSN</h2>
+<p>The Journal Admin can download a ready-made ISSN pack from AES (journal particulars, a checklist and a covering letter on the Institution's letterhead). ISSN India usually asks for at least one published issue or a number of published articles before assigning an online ISSN.</p>
+<h2>3. Using the ISSN</h2>
+<p>The ISSN belongs to the journal title. If the title changes, a new ISSN is needed. If hosting ends, the Institution keeps the ISSN.</p>` },
+{ slug: 'hosting-suspension-and-exit', group: 'Journal hosting', title: 'Suspension, Termination and Exit', summary: 'When a hosted journal can be paused, and what happens if hosting ends.', html: `
+<h2>1. Suspension</h2><p>ACRI Journals may pause new publication in a hosted journal if it seriously breaches the hosting terms or publication ethics: for example, publishing without peer review, charging authors, plagiarism that is not addressed, or misuse of personal data. We first give the Institution written notice and at least 30 days to put things right, unless the breach causes immediate harm.</p>
+<h2>2. Termination</h2><p>Either party may end hosting with 60 days' written notice, or immediately for a serious breach that is not corrected.</p>
+<h2>3. Exit</h2><ul><li>Articles already published stay online permanently at their addresses, with their DOIs, as part of the scholarly record.</li><li>The Institution receives an export of its journal's records: published articles, metadata, files, and manuscripts in progress.</li><li>Manuscripts under review are completed or transferred with the authors' agreement.</li><li>The Institution keeps its journal title and ISSN.</li></ul>` },
+{ slug: 'hosting-branding', group: 'Journal hosting', title: 'Branding and Naming of Hosted Journals', summary: 'How hosted journals are presented, and what they may not claim.', html: `
+<ul><li>A hosted journal is presented as published by its Institution and <b>"Hosted on ACRI Journals"</b>.</li>
+<li>It may show the Institution's name and logo, and the ACRI Journals mark as host, but must not describe itself as an ACRI journal or as published by ACRI.</li>
+<li>Its acronym must be unique on ACRI Journals and must not imitate another journal's name or acronym.</li>
+<li>Hosted journals are listed separately from ACRI's own journals on the ACRI Journals website.</li>
+<li>Claims about indexing, impact factors or ISSN must be true and verifiable.</li></ul>` },
+{ slug: 'hosting-data-protection', group: 'Journal hosting', title: 'Data Protection for Hosted Journals', summary: 'Who is responsible for personal data in a hosted journal.', html: `
+<p>For a hosted journal, the Institution decides why personal data of its authors, reviewers and editors is used, and ACRI Journals processes that data on its behalf to run the platform, under India's Digital Personal Data Protection Act, 2023 and the ACRI Journals <a href="/policies/privacy/">Privacy Policy</a>.</p>
+<ul><li>Personal data is used only to run the journal and is never sold or used for advertising.</li><li>Journal Admins and editors may use data from AES only for the journal's work and must keep it confidential.</li><li>Requests to access or correct personal data can be sent through the <a href="/contact/">contact form</a>.</li><li>When hosting ends, data is handled as set out in <a href="/policies/hosting-suspension-and-exit/">Suspension, termination and exit</a>.</li></ul>` },
+{ slug: 'child-safeguarding', group: 'Journal hosting', title: 'Child Safeguarding for School Journals', summary: 'Extra rules for journals that publish work by students under 18.', html: `
+<p>These rules apply to every journal on ACRI Journals that publishes work by school students, including hosted school journals.</p>
+<ul><li><b>Consent:</b> a parent or guardian gives written consent for every author under 18 before review begins.</li>
+<li><b>Supervision:</b> every student submission names a teacher or mentor who supervised the work.</li>
+<li><b>Privacy:</b> students' email addresses, phone numbers and home addresses are never published. Articles show the student's name, school and class or grade only.</li>
+<li><b>Contact:</b> editors and reviewers contact students only through AES, with the supervising teacher copied, and never through personal channels.</li>
+<li><b>Research with people:</b> research involving other children needs consent from their parents or guardians and approval from the school.</li>
+<li><b>Concerns:</b> any safeguarding concern is reported at once to the school's designated safeguarding lead and to ACRI Journals.</li></ul>` },
   ];
 }
 

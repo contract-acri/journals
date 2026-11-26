@@ -52,7 +52,9 @@ function sig_save(p, u) {
 // ------------------------------------------------------------ the letterhead
 /** opt: { journal, ref, date, to, subject, bodyHtml, signatory, kind } → complete HTML for PDF conversion. */
 function letterheadHtml_(opt) {
-  const P = pubDetails_(), j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
+  const j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
+  // A hosted journal's letterhead carries its own institution as publisher.
+  const P = j && j.partner && j.publisher ? { name: j.publisher.name, address: j.publisher.address || '', phone: j.publisher.phone || '', email: j.publisher.email || j.officeEmail, web: (j.publisher.website || siteUrl_() + '/journals/' + j.slug + '/').replace(/^https?:\/\//, '') } : pubDetails_();
   const logo = j ? imgFromUrl_(siteUrl_() + '/assets/journals/' + j.slug + '/logo.png') : '';
   const sg = opt.sigObj || (opt.signatory === 'none' ? null : signatory_(opt.signatory)), sig = sg ? imgFromFile_(sg.fileId) : '';
   const brand = '<span style="font-family:Georgia,\'Times New Roman\',serif;font-weight:bold;font-size:25px;color:#0B2545;letter-spacing:.5px">ACRI</span><span style="display:inline-block;width:2px;height:20px;background:#1F7A4D;margin:0 10px;vertical-align:-3px"></span><span style="font-family:Arial,sans-serif;font-weight:bold;font-size:10.5px;letter-spacing:4px;color:#0B2545">JOURNALS</span>';
@@ -173,7 +175,7 @@ function certificatesFor_(journal, id, withData) {
 function cert_get(p, u) {
   let journal = p.journal, id = p.articleId;
   if (p.subId) { const s = sub_(p.subId); need_(s.submitterId === u.id || isAdmin_(u) || isEic_(u, s.journal), 'Not allowed.'); need_(s.status === 'published', 'Available once the article is published.'); journal = s.journal; id = s.id; }
-  else need_(isAdmin_(u) || isEic_(u, journal), 'Not allowed.');
+  else need_(isAdmin_(u) || isLead_(u, journal), 'Not allowed.');
   const list = certificatesFor_(journal, id, false);
   if (p.list) return { ok: true, items: list.map(x => ({ author: x.author, name: x.name, ref: x.ref })) };
   const c = list.find(x => String(x.author) === String(p.author || 0)) || list[0]; need_(c, 'No authors on this article.');

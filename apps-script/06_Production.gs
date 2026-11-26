@@ -76,7 +76,8 @@ function prod_saveSource(p, u) {
 
 function prod_publish(p, u) {
   need_(isAdmin_(u), 'Not allowed.');
-  const s = sub_(p.id); need_(['proof', 'proof_approved'].indexOf(s.status) >= 0 || p.force, 'Publish after the author has approved the proofs.');
+  const s = sub_(p.id);
+  if ((journalRow_(s.journal) || {}).partner) { const rd = hostReadiness_(s.journal); need_(rd.ready, 'This hosted journal does not yet meet the ISSN India requirements. Still needed: ' + rd.items.filter(x => x.required && !x.ok).map(x => x.label).join('; ') + '.'); } need_(['proof', 'proof_approved'].indexOf(s.status) >= 0 || p.force, 'Publish after the author has approved the proofs.');
   const raw = ghRead_(artPath_(s) + '/article.json'); need_(raw, 'Converted article not found in the repository.');
   const a = JSON.parse(raw);
   a.status = 'published';

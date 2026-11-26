@@ -7,7 +7,7 @@ const PUBLIC = {
   'rev.get': rev_get, 'rev.respond': rev_respond, 'rev.file': rev_file, 'rev.save': rev_save,
   // Editors sign their agreement from the emailed link; email preference centre; partner applications.
   'agreement.get': agreement_get, 'agreement.sign': agreement_sign, 'agreement.decline': agreement_decline,
-  'public.emailPrefs': public_emailPrefs, 'public.partnerApply': public_partnerApply, 'public.contact': public_contact,
+  'public.emailPrefs': public_emailPrefs, 'public.partnerApply': public_partnerApply, 'public.hostApply': public_hostApply, 'public.contact': public_contact,
 };
 const PRIVATE = {
   'auth.logout': (p, u) => auth_logout(p), 'auth.me': auth_me, 'auth.profile': auth_profile,
@@ -17,7 +17,7 @@ const PRIVATE = {
   'ed.tech': ed_techCheck, 'ed.assign': ed_assign, 'ed.invite': ed_inviteReviewer, 'ed.review': ed_reviewAction, 'ed.note': ed_note, 'ed.decide': ed_decide,
   'prod.send': prod_send, 'prod.check': prod_check, 'prod.source': prod_source, 'prod.saveSource': prod_saveSource, 'prod.publish': prod_publish,
   'prod.doi': prod_registerDoi, 'prod.reserve': prod_reserveDoi,
-  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'adm.importSub': adm_importSub, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
+  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'host.list': host_list, 'host.decide': host_decide, 'host.create': host_create, 'host.status': host_status, 'adm.importSub': adm_importSub, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
   'adm.saveJournal': adm_saveJournal, 'adm.saveIssue': adm_saveIssue, 'adm.testEmail': adm_testEmail, 'adm.rebuild': adm_rebuild,
   'team.list': team_list, 'team.appoint': team_appoint, 'team.resend': team_resend, 'team.update': team_update, 'team.end': team_end, 'team.renew': team_renew, 'team.file': team_file,
   'mail.lists': mail_lists, 'mail.contacts': mail_contacts, 'mail.import': mail_import, 'mail.setContact': mail_setContact,

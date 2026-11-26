@@ -56,6 +56,7 @@ function portalUrl_(hash) { return siteUrl_() + '/portal/' + (hash ? '#/' + hash
 const SCHEMA = {
   Users: ['id', 'email', 'given', 'family', 'degrees', 'affiliation', 'country', 'orcid', 'phone', 'passHash', 'salt', 'verified', 'verifyToken', 'resetToken', 'resetExpires', 'reviewer', 'subjects', 'roles', 'status', 'created', 'lastLogin', 'designation', 'department', 'instAddress', 'profileUrl', 'instEmail', 'reviewDays', 'reviewMax', 'reviewPauseUntil', 'reviewNote', 'signatureFileId', 'photo', 'bio', 'pageSlug', 'scholarUrl', 'linkedinUrl', 'website', 'showEmail', 'pageOff'],
   Sessions: ['token', 'userId', 'expires', 'created'],
+  HostApps: ['id', 'created', 'status', 'institution', 'instType', 'city', 'country', 'website', 'address', 'contactName', 'contactRole', 'contactEmail', 'phone', 'journalName', 'acronym', 'scope', 'subjects', 'frequency', 'audience', 'eicName', 'eicEmail', 'adminEmail', 'notes', 'decidedBy', 'decidedAt', 'decisionNote', 'journal'],
   Journals: ['slug', 'code', 'name', 'fromEmail', 'fromName', 'eicEmail', 'active', 'json', 'updated'],
   Submissions: ['id', 'journal', 'year', 'serial', 'status', 'type', 'subject', 'title', 'subtitle', 'abstract', 'keywords', 'authors', 'affiliations', 'declarations', 'coverLetter', 'submitterId', 'editorId', 'version', 'created', 'updated', 'submittedAt', 'decision', 'decisionAt', 'acceptedAt', 'doi', 'zenodoId', 'previewToken', 'volume', 'issue', 'published', 'flags'],
   Files: ['id', 'subId', 'version', 'kind', 'name', 'mime', 'size', 'driveId', 'pdfId', 'uploadedBy', 'created', 'active'],
@@ -109,6 +110,7 @@ const ROLES = {
   editor: { label: 'Editor', plural: 'Editors', rank: 3 },
   board: { label: 'Editorial Board Member', plural: 'Editorial Board', rank: 4 },
   mgmt: { label: 'Management Team', plural: 'Management team', rank: 0 },
+  jadmin: { label: 'Journal Admin', plural: 'Journal administration', rank: 0.5 },
 };
 /** The ACRI Journals management team is kept as appointments to this pseudo-journal. It gives no editorial rights. */
 const NETWORK = '_network';
@@ -308,7 +310,7 @@ function session_(token) {
 
 /** Editorial roles come ONLY from active, signed, in-term appointments. Admin is a user flag. */
 function effectiveRoles_(u) {
-  const r = { admin: !!(u.roles && u.roles.admin), eic: [], senior: [], editor: [], board: [] };
+  const r = { admin: !!(u.roles && u.roles.admin), eic: [], senior: [], editor: [], board: [], jadmin: [] };
   const today = today_();
   all_('Appointments').forEach(a => {
     if (a.userId !== u.id || a.status !== 'active') return;
@@ -320,6 +322,8 @@ function effectiveRoles_(u) {
 }
 function isAdmin_(u) { return !!(u.roles && u.roles.admin); }
 function isEic_(u, j) { return isAdmin_(u) || ((u.roles.eic || []).indexOf(j) >= 0); }
+/** Journal Admin of a hosted journal, or its EIC: may run the journal's settings, team, issues, ISSN, messages and email. */
+function isLead_(u, j) { return isEic_(u, j) || ((u.roles.jadmin || []).indexOf(j) >= 0); }
 function isSenior_(u, j) { return isEic_(u, j) || ((u.roles.senior || []).indexOf(j) >= 0); }
 function isBoard_(u, j) { return isSenior_(u, j) || ((u.roles.editor || []).indexOf(j) >= 0) || ((u.roles.board || []).indexOf(j) >= 0); }
 function need_(cond, msg) { if (!cond) throw new Error(msg || 'You do not have permission to do this.'); }
@@ -691,7 +695,7 @@ function eicEmails_(slug) {
 }
 
 function public_journals() {
-  return { ok: true, journals: all_('Journals').filter(r => String(r.active) !== 'false').map(r => { const j = journalRow_(r.slug); return { slug: j.slug, code: j.code, name: j.name, accent: j.accent, articleTypes: j.articleTypes || [], subjects: j.subjects || [] }; }) };
+  return { ok: true, journals: all_('Journals').filter(r => String(r.active) !== 'false').map(r => { const j = journalRow_(r.slug); return { slug: j.slug, code: j.code, name: j.name, accent: j.accent, articleTypes: j.articleTypes || [], subjects: j.subjects || [], school: !!(j.schoolJournal || j.slug === 'ijsri'), hosted: !!j.partner, publisher: j.partner && j.publisher ? j.publisher.name : '' }; }) };
 }
 
 // ------------------------------------------------------------ helpers
@@ -786,6 +790,8 @@ function sub_submit(p, u) {
     if (s.status === 'revision' && !has('response')) errs.push('your response to reviewers');
     const d = s.declarations || {};
     if (s.status === 'draft' && !(d.original && d.ethics && d.consent && d.license)) errs.push('all required declarations');
+    const jr = journalRow_(s.journal);
+    if (s.status === 'draft' && (jr.schoolJournal || jr.slug === 'ijsri') && !(d.guardian && String(d.supervisor || '').trim())) errs.push('parent or guardian consent and the name of the supervising teacher (required for school journals)');
     need_(!errs.length, 'Before submitting, please add: ' + errs.join(', ') + '.');
     const j = journalRow_(s.journal);
     if (s.status === 'draft') {
@@ -1174,7 +1180,8 @@ function prod_saveSource(p, u) {
 
 function prod_publish(p, u) {
   need_(isAdmin_(u), 'Not allowed.');
-  const s = sub_(p.id); need_(['proof', 'proof_approved'].indexOf(s.status) >= 0 || p.force, 'Publish after the author has approved the proofs.');
+  const s = sub_(p.id);
+  if ((journalRow_(s.journal) || {}).partner) { const rd = hostReadiness_(s.journal); need_(rd.ready, 'This hosted journal does not yet meet the ISSN India requirements. Still needed: ' + rd.items.filter(x => x.required && !x.ok).map(x => x.label).join('; ') + '.'); } need_(['proof', 'proof_approved'].indexOf(s.status) >= 0 || p.force, 'Publish after the author has approved the proofs.');
   const raw = ghRead_(artPath_(s) + '/article.json'); need_(raw, 'Converted article not found in the repository.');
   const a = JSON.parse(raw);
   a.status = 'published';
@@ -1249,13 +1256,27 @@ function adm_setRoles(p, u) {
 }
 
 function adm_journals(p, u) {
-  need_(isAdmin_(u));
-  return { ok: true, items: all_('Journals').map(r => Object.assign(journalRow_(r.slug), { issues: where_('Issues', i => i.journal === r.slug) })) };
+  const mine = all_('Journals').filter(r => isAdmin_(u) || (isLead_(u, r.slug) && (r.json || {}).partner));
+  need_(isAdmin_(u) || mine.length, 'Not allowed.');
+  return { ok: true, items: mine.map(r => Object.assign(journalRow_(r.slug), { issues: where_('Issues', i => i.journal === r.slug) })) };
 }
 /** Save a journal (new or existing): updates the sheet AND commits journal.json so the website updates. */
 function adm_saveJournal(p, u) {
-  need_(isAdmin_(u));
   const j = p.journal;
+  const existing = find_('Journals', 'slug', j.slug || '');
+  const lead = !isAdmin_(u);
+  if (lead) {
+    need_(existing && (existing.json || {}).partner && isLead_(u, j.slug), 'Only an ACRI Journals admin can change this journal.');
+    // A hosted journal's own team cannot change what ACRI controls.
+    const pj = existing.json || {};
+    Object.assign(j, { partner: true, active: pj.active !== false, order: pj.order, serialStart: pj.serialStart, partnerStatus: pj.partnerStatus, boardExtra: pj.boardExtra || [], officeEmail: pj.officeEmail, editorEmail: pj.editorEmail, noReplyEmail: pj.noReplyEmail });
+  }
+  if (j.partner) {
+    need_(/^[A-Z][A-Z0-9]{1,11}$/.test(String(j.code || '').toUpperCase()), 'The acronym (code) must be 2–12 capital letters or numbers, e.g. "JSRS".');
+    const clash = all_('Journals').find(r => r.slug !== j.slug && String(r.code).toUpperCase() === String(j.code).toUpperCase());
+    need_(!clash, 'Another journal already uses the acronym ' + String(j.code).toUpperCase() + '. Choose a different one.');
+    need_(j.publisher && String(j.publisher.name || '').trim(), 'Enter the publishing institution (school or university).');
+  }
   need_(/^[a-z0-9-]{2,20}$/.test(j.slug || ''), 'Slug must be 2–20 lowercase letters/numbers, e.g. "ijelf".');
   need_(j.code && j.name, 'Code and name are required.');
   const prev = (find_('Journals', 'slug', j.slug) || {}).json || {};
@@ -1270,6 +1291,9 @@ function adm_saveJournal(p, u) {
     issnOnline: j.issnOnline !== undefined ? j.issnOnline : (prev.issnOnline || ''), issnPrint: j.issnPrint !== undefined ? j.issnPrint : (prev.issnPrint || ''),
     issnStatus: Object.assign({ online: (j.issnOnline || prev.issnOnline) ? 'assigned' : 'not_applied', print: 'not_applicable' }, prev.issnStatus || {}, j.issnOnline && !prev.issnOnline ? { online: 'assigned' } : {}),
     logoColor: j.accent || prev.logoColor, order: Number(j.order) || prev.order || 99, serialStart: j.serialStart || prev.serialStart || {},
+    partner: !!(j.partner !== undefined ? j.partner : prev.partner), schoolJournal: !!(j.schoolJournal !== undefined ? j.schoolJournal : prev.schoolJournal),
+    publisher: j.publisher ? { name: String(j.publisher.name || '').trim(), address: String(j.publisher.address || '').trim(), website: String(j.publisher.website || '').trim(), email: normEmail_(j.publisher.email || ''), phone: String(j.publisher.phone || '').trim(), type: j.publisher.type || '' } : (prev.publisher || null),
+    partnerStatus: j.partnerStatus || prev.partnerStatus || (j.partner ? 'setup' : ''),
   });
   json.editorialEmail = json.officeEmail;
   json.board = boardFor_(json.slug, json.boardExtra);
@@ -1284,8 +1308,8 @@ function adm_saveJournal(p, u) {
 }
 
 function adm_saveIssue(p, u) {
-  need_(isAdmin_(u));
-  const i = p.issue; need_(i.journal && i.volume && i.issue, 'Journal, volume and issue are required.');
+  const i = p.issue;
+  need_(isAdmin_(u) || (i && isLead_(u, i.journal) && (journalRow_(i.journal) || {}).partner), 'Not allowed.'); need_(i.journal && i.volume && i.issue, 'Journal, volume and issue are required.');
   const ex = where_('Issues', x => x.journal === i.journal && String(x.volume) === String(i.volume) && String(x.issue) === String(i.issue))[0];
   const newlyPublished = i.status === 'published' && (!ex || ex.status !== 'published');
   const sh = sh_('Issues');
@@ -1322,7 +1346,7 @@ const PUBLIC = {
   'rev.get': rev_get, 'rev.respond': rev_respond, 'rev.file': rev_file, 'rev.save': rev_save,
   // Editors sign their agreement from the emailed link; email preference centre; partner applications.
   'agreement.get': agreement_get, 'agreement.sign': agreement_sign, 'agreement.decline': agreement_decline,
-  'public.emailPrefs': public_emailPrefs, 'public.partnerApply': public_partnerApply, 'public.contact': public_contact,
+  'public.emailPrefs': public_emailPrefs, 'public.partnerApply': public_partnerApply, 'public.hostApply': public_hostApply, 'public.contact': public_contact,
 };
 const PRIVATE = {
   'auth.logout': (p, u) => auth_logout(p), 'auth.me': auth_me, 'auth.profile': auth_profile,
@@ -1332,7 +1356,7 @@ const PRIVATE = {
   'ed.tech': ed_techCheck, 'ed.assign': ed_assign, 'ed.invite': ed_inviteReviewer, 'ed.review': ed_reviewAction, 'ed.note': ed_note, 'ed.decide': ed_decide,
   'prod.send': prod_send, 'prod.check': prod_check, 'prod.source': prod_source, 'prod.saveSource': prod_saveSource, 'prod.publish': prod_publish,
   'prod.doi': prod_registerDoi, 'prod.reserve': prod_reserveDoi,
-  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'adm.importSub': adm_importSub, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
+  'adm.overview': adm_overview, 'adm.subs': adm_allSubs, 'host.list': host_list, 'host.decide': host_decide, 'host.create': host_create, 'host.status': host_status, 'adm.importSub': adm_importSub, 'adm.users': adm_users, 'adm.roles': adm_setRoles, 'adm.journals': adm_journals,
   'adm.saveJournal': adm_saveJournal, 'adm.saveIssue': adm_saveIssue, 'adm.testEmail': adm_testEmail, 'adm.rebuild': adm_rebuild,
   'team.list': team_list, 'team.appoint': team_appoint, 'team.resend': team_resend, 'team.update': team_update, 'team.end': team_end, 'team.renew': team_renew, 'team.file': team_file,
   'mail.lists': mail_lists, 'mail.contacts': mail_contacts, 'mail.import': mail_import, 'mail.setContact': mail_setContact,
@@ -1545,7 +1569,7 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 /** Public board list for journal.json: active, signed appointments + manual extras. */
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
-  const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
+  const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false' && a.role !== 'jadmin').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
     .map(a => memberCard_(a, users[a.userId] || {}));
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
@@ -1578,6 +1602,7 @@ function syncBoard_(slug) {
 // ------------------------------------------------------------ agreement text (versioned)
 function agreementHtml_(a, u, j) {
   if (a.journal === NETWORK) return mgmtAgreementHtml_(a, u);
+  if (a.role === 'jadmin') return jadminAgreementHtml_(a, u, j);
   const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
   const duties = {
     eic: 'set the editorial direction of the Journal; make final decisions on manuscripts on the basis of scholarly merit; appoint handling editors; ensure the integrity, timeliness and fairness of peer review; and represent the Journal',
@@ -1621,10 +1646,17 @@ function certificateHtml_(a, u, j) {
 }
 
 // ------------------------------------------------------------ admin / EIC actions
-function canAppoint_(u, journal, role) { if (journal === NETWORK || role === 'mgmt') return isAdmin_(u); return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
+function canAppoint_(u, journal, role) {
+  if (journal === NETWORK || role === 'mgmt') return isAdmin_(u);
+  if (isAdmin_(u)) return true;
+  // A hosted journal's Journal Admin runs its whole team, including the EIC and other Journal Admins.
+  if (((u.roles.jadmin || []).indexOf(journal) >= 0) && (journalRow_(journal) || {}).partner) return true;
+  if (role === 'jadmin') return false;
+  return role !== 'eic' && isEic_(u, journal);
+}
 
 function team_list(p, u) {
-  need_(isAdmin_(u) || (p.journal && isEic_(u, p.journal)), 'Not allowed.');
+  need_(isAdmin_(u) || (p.journal && isLead_(u, p.journal)), 'Not allowed.');
   const users = {}; all_('Users').forEach(x => users[x.id] = x);
   const items = all_('Appointments').filter(a => !p.journal || a.journal === p.journal).map(a => {
     const x = users[a.userId] || {};
@@ -1727,7 +1759,7 @@ function appt_(token) {
 }
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { mgmt: a.journal === NETWORK, status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+  return { ok: true, agreement: { mgmt: a.journal === NETWORK, jadmin: a.role === 'jadmin', lite: a.journal === NETWORK || a.role === 'jadmin', status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
     profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
@@ -1750,7 +1782,7 @@ function agreement_sign(p) {
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
-  if (p.profile && a.journal === NETWORK) need_(prof.designation, 'Please enter your designation, as it should appear on the management page.');
+  if (p.profile && (a.journal === NETWORK || a.role === 'jadmin')) need_(prof.designation, 'Please enter your designation.');
   else if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
     if (prof.instEmail) instEmailOk_(prof.instEmail);
@@ -1857,6 +1889,24 @@ function mgmtAgreementHtml_(a, u) {
 <h3>10. Electronic signature</h3><p>By typing your full name and selecting "I agree and sign", you sign this Agreement electronically, and the signature has the same effect as a handwritten one.</p>`;
 }
 
+// ------------------------------------------------------------ hosted journal: Journal Admin appointment
+function jadminAgreementHtml_(a, u, j) {
+  const name = (u.given + ' ' + u.family).trim(), P = j.publisher || {};
+  return `<h1 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">Journal Admin Appointment and Hosting Terms</h1>
+<p style="color:#5E6875;margin:0 0 18px">Version ${AGREEMENT_VERSION} · ${esc_(j.name)} · Hosted on ACRI Journals</p>
+<p>This Agreement is between <b>ACRI Journals</b>, operated by ${CFG.LEGAL_ENTITY} ("ACRI Journals"), and <b>${esc_(name)}</b> ("you"), acting for <b>${esc_(P.name || 'the publishing institution')}</b> ("the Institution"), publisher of <b>${esc_(j.name)}</b> ("the Journal").</p>
+<h3>1. Appointment and term</h3><p>You are appointed Journal Admin of the Journal from <b>${fmtD_(a.start)}</b> to <b>${fmtD_(a.end)}</b>. The appointment takes effect when you sign and may be renewed.</p>
+<h3>2. The hosting service</h3><p>ACRI Journals hosts the Journal free of charge on its platform: the journal website, the ACRI Editorial System (AES) for submission and peer review, typeset article pages and PDFs, DOIs through Zenodo, and long-term preservation. The <a href="${siteUrl_()}/policies/journal-hosting/">Journal Hosting Policy</a> and <a href="${siteUrl_()}/policies/partner-journal-terms/">Hosted Journal Terms</a> form part of this Agreement.</p>
+<h3>3. Publisher and ISSN</h3><p>The Institution is the publisher of the Journal and is responsible for its content. The Institution applies for and holds the Journal's ISSN in its own name, following the rules of the ISSN National Centre for India, and keeps the publisher details on the Journal's website accurate.</p>
+<h3>4. Your responsibilities</h3><p>You will keep the Journal's details, editorial team and issues up to date in AES; make sure the Journal has a qualified Editor-in-Chief and an editorial board; and make sure every research article is peer reviewed by at least two independent reviewers under the ACRI Journals <a href="${siteUrl_()}/policies/">editorial and ethics policies</a> and the COPE Core Practices.</p>
+<h3>5. Editorial independence</h3><p>Decisions on manuscripts belong to the Journal's editors. As Journal Admin you will not decide on, or seek to influence, the outcome of any manuscript unless you also hold an editorial role for it.</p>
+${j.schoolJournal ? '<h3>6. Students under 18</h3><p>The Journal publishes work by school students. You will make sure the <a href="' + siteUrl_() + '/policies/child-safeguarding/">child safeguarding rules</a> are followed: written consent from a parent or guardian for every author under 18, supervision by a teacher or mentor, and no publication of students\' personal contact details.</p>' : ''}
+<h3>${j.schoolJournal ? 7 : 6}. Confidentiality and data protection</h3><p>You will keep manuscripts, reviews and personal data confidential and use them only for the Journal, in line with the <a href="${siteUrl_()}/policies/privacy/">Privacy Policy</a> and India's Digital Personal Data Protection Act, 2023.</p>
+<h3>${j.schoolJournal ? 8 : 7}. Branding</h3><p>The Journal is presented as published by the Institution and "Hosted on ACRI Journals". It must not be presented as a journal published by ACRI.</p>
+<h3>${j.schoolJournal ? 9 : 8}. Suspension and exit</h3><p>ACRI Journals may pause new publication in, or stop hosting, the Journal if it seriously breaches these terms, after giving the Institution notice and a chance to put things right. If hosting ends, the Institution receives its data, and articles already published remain online with their DOIs.</p>
+<h3>${j.schoolJournal ? 10 : 9}. Governing law and signature</h3><p>This Agreement is governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat. By typing your full name and selecting "I agree and sign", you sign it electronically.</p>`;
+}
+
 // ===== 11_Mailing.gs =====
 /** Email lists, campaigns (newsletters, calls for papers, outreach), automations and unsubscribe handling.
  *
@@ -1928,8 +1978,8 @@ function mail_lists(p, u) {
   ['network'].concat(all_('Journals').map(j => j.slug)).forEach(k => { counts[k] = counts[k] || { list: k, name: listName_(k), subscribed: 0, pending: 0, unsubscribed: 0, bounced: 0 }; });
   return { ok: true, lists: Object.values(counts) };
 }
-function anyEic_(u) { return (u.roles.eic || []).length > 0; }
-function mailScope_(u, journal) { need_(isAdmin_(u) || (journal && isEic_(u, journal)), 'Only admins, or the EIC for their own journal, can manage email.'); }
+function anyEic_(u) { return (u.roles.eic || []).length > 0 || (u.roles.jadmin || []).length > 0; }
+function mailScope_(u, journal) { need_(isAdmin_(u) || (journal && isLead_(u, journal)), 'Only admins, or the EIC for their own journal, can manage email.'); }
 
 function mail_contacts(p, u) {
   mailScope_(u, p.list !== 'network' ? p.list : null);
@@ -1966,7 +2016,7 @@ function mail_setContact(p, u) {
 // ------------------------------------------------------------ campaigns
 function mail_campaigns(p, u) {
   need_(isAdmin_(u) || anyEic_(u), 'Not allowed.');
-  return { ok: true, presets: PRESETS, items: all_('Campaigns').filter(c => isAdmin_(u) || isEic_(u, c.journal)).map(c => ({ id: c.id, journal: c.journal, name: c.name, subject: c.subject, preset: c.preset, status: c.status, scheduledAt: c.scheduledAt, sentAt: c.sentAt, stats: c.stats || {}, updated: c.updated, audience: c.audience, sender: c.sender, preheader: c.preheader, content: c.content })).reverse() };
+  return { ok: true, presets: PRESETS, items: all_('Campaigns').filter(c => isAdmin_(u) || isLead_(u, c.journal)).map(c => ({ id: c.id, journal: c.journal, name: c.name, subject: c.subject, preset: c.preset, status: c.status, scheduledAt: c.scheduledAt, sentAt: c.sentAt, stats: c.stats || {}, updated: c.updated, audience: c.audience, sender: c.sender, preheader: c.preheader, content: c.content })).reverse() };
 }
 function mail_saveCampaign(p, u) {
   const c = p.campaign || {}; mailScope_(u, c.journal || null);
@@ -2170,7 +2220,7 @@ function seedAutomations_(slug) {
 function mail_automations(p, u) {
   need_(isAdmin_(u) || anyEic_(u), 'Not allowed.');
   all_('Journals').forEach(j => seedAutomations_(j.slug)); seedAutomations_('network');
-  return { ok: true, types: AUTOMATION_TYPES, items: all_('Automations').filter(a => isAdmin_(u) || isEic_(u, a.journal)).map(a => ({ id: a.id, journal: a.journal, type: a.type, name: a.name, enabled: String(a.enabled) !== 'false', everyDays: a.everyDays, campaignId: a.campaignId, endDate: a.endDate, nextRun: a.nextRun, lastRun: a.lastRun, config: a.config || {} })) };
+  return { ok: true, types: AUTOMATION_TYPES, items: all_('Automations').filter(a => isAdmin_(u) || isLead_(u, a.journal)).map(a => ({ id: a.id, journal: a.journal, type: a.type, name: a.name, enabled: String(a.enabled) !== 'false', everyDays: a.everyDays, campaignId: a.campaignId, endDate: a.endDate, nextRun: a.nextRun, lastRun: a.lastRun, config: a.config || {} })) };
 }
 function mail_saveAutomation(p, u) {
   const a = find_('Automations', 'id', p.id); need_(a, 'Automation not found.'); mailScope_(u, a.journal !== 'network' ? a.journal : null);
@@ -2540,9 +2590,9 @@ function readiness_(slug) {
     stats: { articles: idx.length, issues: Object.keys(byIssue).length, eb: eb.length, foreignEb: foreign.length } };
 }
 
-function idx_readiness(p, u) { need_(isAdmin_(u) || isEic_(u, p.journal), 'Not allowed.'); return { ok: true, r: readiness_(p.journal), stages: ISSN_STAGES }; }
+function idx_readiness(p, u) { need_(isAdmin_(u) || isLead_(u, p.journal), 'Not allowed.'); return { ok: true, r: readiness_(p.journal), stages: ISSN_STAGES }; }
 function idx_tick(p, u) {
-  need_(isAdmin_(u) || isEic_(u, p.journal), 'Not allowed.');
+  need_(isAdmin_(u) || isLead_(u, p.journal), 'Not allowed.');
   const r = find_('Journals', 'slug', p.journal); const json = Object.assign({}, r.json || {});
   json.readinessManual = Object.assign({}, json.readinessManual || {}, { [p.key]: !!p.ok });
   update_('Journals', 'slug', p.journal, { json: json, updated: now_() }); CacheService.getScriptCache().remove('J:' + p.journal);
@@ -2612,12 +2662,13 @@ function onIssueForIssn_(journal, volume, issue) {
 
 /** Logo upload: kind = logo | mark | logo-white | mark-white; png or svg. Empty data removes it (back to generated). */
 function adm_logo(p, u) {
-  need_(isAdmin_(u), 'Not allowed.');
-  need_(['logo', 'mark', 'logo-white', 'mark-white'].indexOf(p.kind) >= 0, 'Unknown logo type.');
+  need_(isAdmin_(u) || (isLead_(u, p.journal) && (journalRow_(p.journal) || {}).partner), 'Not allowed.');
+  need_(['logo', 'mark', 'logo-white', 'mark-white', 'inst'].indexOf(p.kind) >= 0, 'Unknown logo type.');
   const ext = /svg/i.test(p.mime || p.name || '') ? 'svg' : 'png', base = 'content/journals/' + p.journal + '/' + p.kind;
   const files = p.data ? [{ path: base + '.' + ext, bytes: Utilities.base64Decode(p.data) }] : [{ path: base + '.png', delete: true }];
   if (p.data && ext === 'png') files.push({ path: base + '.svg', delete: true });
   ghCommit_(files, (p.data ? 'Logo uploaded: ' : 'Logo removed: ') + p.journal + ' ' + p.kind);
+  if (p.kind === 'inst') { const r = find_('Journals', 'slug', p.journal); if (r) { update_('Journals', 'slug', p.journal, { json: Object.assign({}, r.json, { instLogo: !!p.data }) }); CacheService.getScriptCache().remove('J:' + p.journal); } }
   return { ok: true, message: 'Saved. The website updates in a few minutes.' };
 }
 
@@ -2652,7 +2703,7 @@ function public_contact(p) {
 
 /** Who sees which messages: admins (the journal office / controller) see everything;
  *  an Editor-in-Chief sees messages addressed to the EIC of their own journal(s). */
-function canSeeMsg_(u, m) { return isAdmin_(u) || (m.to === 'eic' && m.journal && (u.roles.eic || []).indexOf(m.journal) >= 0); }
+function canSeeMsg_(u, m) { return isAdmin_(u) || (m.to === 'eic' && m.journal && isLead_(u, m.journal)); }
 function msgView_(m) { const o = Object.assign({}, m); delete o._row; o.toLabel = MSG_TO[m.to] || m.to; return o; }
 
 function msg_list(p, u) {
@@ -2860,7 +2911,9 @@ function sig_save(p, u) {
 // ------------------------------------------------------------ the letterhead
 /** opt: { journal, ref, date, to, subject, bodyHtml, signatory, kind } → complete HTML for PDF conversion. */
 function letterheadHtml_(opt) {
-  const P = pubDetails_(), j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
+  const j = opt.journal ? journalRow_(opt.journal) : null, accent = (j && j.accent) || '#0B2545';
+  // A hosted journal's letterhead carries its own institution as publisher.
+  const P = j && j.partner && j.publisher ? { name: j.publisher.name, address: j.publisher.address || '', phone: j.publisher.phone || '', email: j.publisher.email || j.officeEmail, web: (j.publisher.website || siteUrl_() + '/journals/' + j.slug + '/').replace(/^https?:\/\//, '') } : pubDetails_();
   const logo = j ? imgFromUrl_(siteUrl_() + '/assets/journals/' + j.slug + '/logo.png') : '';
   const sg = opt.sigObj || (opt.signatory === 'none' ? null : signatory_(opt.signatory)), sig = sg ? imgFromFile_(sg.fileId) : '';
   const brand = '<span style="font-family:Georgia,\'Times New Roman\',serif;font-weight:bold;font-size:25px;color:#0B2545;letter-spacing:.5px">ACRI</span><span style="display:inline-block;width:2px;height:20px;background:#1F7A4D;margin:0 10px;vertical-align:-3px"></span><span style="font-family:Arial,sans-serif;font-weight:bold;font-size:10.5px;letter-spacing:4px;color:#0B2545">JOURNALS</span>';
@@ -2981,7 +3034,7 @@ function certificatesFor_(journal, id, withData) {
 function cert_get(p, u) {
   let journal = p.journal, id = p.articleId;
   if (p.subId) { const s = sub_(p.subId); need_(s.submitterId === u.id || isAdmin_(u) || isEic_(u, s.journal), 'Not allowed.'); need_(s.status === 'published', 'Available once the article is published.'); journal = s.journal; id = s.id; }
-  else need_(isAdmin_(u) || isEic_(u, journal), 'Not allowed.');
+  else need_(isAdmin_(u) || isLead_(u, journal), 'Not allowed.');
   const list = certificatesFor_(journal, id, false);
   if (p.list) return { ok: true, items: list.map(x => ({ author: x.author, name: x.name, ref: x.ref })) };
   const c = list.find(x => String(x.author) === String(p.author || 0)) || list[0]; need_(c, 'No authors on this article.');
@@ -3067,12 +3120,12 @@ function rec_submit(p, u) {
 }
 function rec_list(p, u) {
   const mine = !(isAdmin_(u) || anyEic_(u));
-  const items = all_('Recommendations').filter(r => isAdmin_(u) || isEic_(u, r.journal) || r.by === u.id).filter(r => !p.mine || r.by === u.id);
+  const items = all_('Recommendations').filter(r => isAdmin_(u) || isLead_(u, r.journal) || r.by === u.id).filter(r => !p.mine || r.by === u.id);
   return { ok: true, kinds: REC_KINDS, canManage: !mine, items: items.map(r => { delete r._row; return r; }).reverse() };
 }
 /** op: status | invite (email the recommended person from the journal office, naming the board member) */
 function rec_update(p, u) {
-  const r = find_('Recommendations', 'id', p.id); need_(r && (isAdmin_(u) || isEic_(u, r.journal)), 'Not allowed.');
+  const r = find_('Recommendations', 'id', p.id); need_(r && (isAdmin_(u) || isLead_(u, r.journal)), 'Not allowed.');
   if (p.op === 'invite') {
     need_(r.email, 'There is no email address for this person.');
     const j = journalRow_(r.journal), rec = find_('Users', 'id', r.by) || {};
@@ -3179,4 +3232,109 @@ function adm_importSub(p, u) {
 }
 Object.assign(TEMPLATES, {
   imported_author: d => [`Your submission is now in the ACRI Journals portal: ${d.id}`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for submitting your manuscript to <b>${esc_(d.journal)}</b> on ${esc_(d.received)} through our ${esc_(d.source)}. We have now moved all submissions to the ACRI Journals editorial portal, and yours has been carried across with its original date of receipt.</p><p><b>Manuscript ID:</b> ${d.id}<br><b>Title:</b> ${esc_(d.title)}</p><p>There is nothing you need to resubmit. You can follow every stage of the review online, and you will receive emails as your manuscript moves forward.</p>${d.setPw ? `<p>We have created an ACRI One account for you with this email address. Please choose a password to sign in:</p>${btn_(d.setPw, 'Set your password')}<p style="font-size:14px;color:#5E6875">This link is valid for 30 days. After that, use "Forgot password" on the sign-in page.</p>` : `${btn_(d.link, 'View your submission')}`}<p>With thanks,<br>The Editorial Office<br>${esc_(d.journal)}</p>`],
+});
+
+// ===== 20_Hosting.gs =====
+/** Journal hosting: schools, colleges and universities run their own journal on ACRI Journals, free of charge.
+ *  The institution is the publisher (and applies for its own ISSN); ACRI provides the platform, AES and DOIs.
+ *  Two ways in: the institution applies on /start-a-journal/, or an ACRI admin adds the journal directly.
+ *  Either way AES creates the journal, then invites its Journal Admin and Editor-in-Chief by email. */
+
+const INST_TYPES = ['School', 'College', 'University', 'Research institute', 'Other'];
+
+function public_hostApply(p) {
+  if (p.website2) return { ok: true, message: 'Thank you.' }; // honeypot
+  const t = (k, n) => String(p[k] || '').trim().slice(0, n || 300);
+  need_(t('institution').length >= 3, 'Please enter the name of your institution.');
+  need_(t('contactName').length >= 2, 'Please enter your name.');
+  const email = normEmail_(p.contactEmail);
+  need_(/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email), 'Please enter a valid email address.');
+  need_(instEmailOk_(email), 'Please use your official institutional email address, not a personal Gmail, Yahoo or Outlook address.');
+  need_(t('journalName').length >= 5, 'Please enter the proposed name of the journal.');
+  need_(t('scope', 3000).length >= 40, 'Please describe the aims and scope of the journal in a few sentences.');
+  need_(p.agree === true, 'Please accept the Journal Hosting Policy.');
+  const recent = where_('HostApps', a => a.contactEmail === email && (Date.now() - new Date(a.created).getTime()) < 864e5).length;
+  need_(recent < 3, 'You have already sent an application today. We will reply by email.');
+  const rec = insert_('HostApps', { id: uid_('H'), created: now_(), status: 'new', institution: t('institution'), instType: INST_TYPES.indexOf(p.instType) >= 0 ? p.instType : 'Other',
+    city: t('city', 80), country: t('country', 60) || 'India', website: t('website'), address: t('address', 400), contactName: t('contactName', 120), contactRole: t('contactRole', 120), contactEmail: email, phone: t('phone', 30),
+    journalName: t('journalName'), acronym: t('acronym', 12).toUpperCase(), scope: t('scope', 3000), subjects: t('subjects', 600), frequency: t('frequency', 40), audience: t('audience', 200),
+    eicName: t('eicName', 120), eicEmail: normEmail_(p.eicEmail || ''), adminEmail: normEmail_(p.adminEmail || email), notes: t('notes', 2000) });
+  mailTemplate_('host_received', email, { name: rec.contactName, journal: rec.journalName, institution: rec.institution });
+  return { ok: true, message: 'Thank you. Your application has been received. We will review it and reply by email, usually within two weeks.' };
+}
+
+function host_list(p, u) {
+  need_(isAdmin_(u), 'Not allowed.');
+  const apps = all_('HostApps').map(a => { delete a._row; return a; }).reverse();
+  const journals = all_('Journals').filter(r => (r.json || {}).partner).map(r => { const j = journalRow_(r.slug); return { slug: r.slug, code: r.code, name: r.name, publisher: (j.publisher || {}).name || '', status: j.partnerStatus || 'setup', active: j.active, school: !!j.schoolJournal, ready: hostReadiness_(r.slug) }; });
+  return { ok: true, apps: apps, journals: journals, types: INST_TYPES };
+}
+
+function host_decide(p, u) {
+  need_(isAdmin_(u), 'Not allowed.');
+  const a = find_('HostApps', 'id', p.id); need_(a, 'Application not found.');
+  need_(['declined', 'new', 'reviewing'].indexOf(p.status) >= 0, 'Unknown status.');
+  update_('HostApps', 'id', a.id, { status: p.status, decidedBy: u.email, decidedAt: now_(), decisionNote: String(p.note || '').slice(0, 2000) });
+  if (p.status === 'declined' && p.notify !== false) mailTemplate_('host_declined', a.contactEmail, { name: a.contactName, journal: a.journalName, note: p.note || '' });
+  return { ok: true };
+}
+
+/** Create a hosted journal (from an application or directly) and invite its Journal Admin and Editor-in-Chief. */
+function host_create(p, u) {
+  need_(isAdmin_(u), 'Only an ACRI Journals admin can add a hosted journal.');
+  const j = p.journal || {};
+  j.slug = String(j.slug || '').toLowerCase().trim();
+  need_(!find_('Journals', 'slug', j.slug), 'A journal with the web address /journals/' + j.slug + '/ already exists.');
+  const adminEmail = normEmail_(p.adminEmail), eicEmail = normEmail_(p.eicEmail || '');
+  need_(/@/.test(adminEmail), 'Enter the email of the Journal Admin at the institution.');
+  Object.assign(j, { partner: true, partnerStatus: 'setup', active: true, scopeType: j.scopeType || 'national' });
+  const res = adm_saveJournal({ journal: j, publish: p.publish }, u);
+  const start = today_(), end = Utilities.formatDate(new Date(Date.now() + 3 * 365 * 864e5), 'Asia/Kolkata', 'yyyy-MM-dd');
+  const out = [];
+  team_appoint({ journal: j.slug, role: 'jadmin', email: adminEmail, given: p.adminGiven || '', family: p.adminFamily || '', title: 'Journal Admin', start: start, end: end, showOnSite: false, days: 14 }, u); out.push('Journal Admin invited (' + adminEmail + ')');
+  if (eicEmail) { team_appoint({ journal: j.slug, role: 'eic', email: eicEmail, given: p.eicGiven || '', family: p.eicFamily || '', start: start, end: end, showOnSite: true, days: 14 }, u); out.push('Editor-in-Chief invited (' + eicEmail + ')'); }
+  if (p.appId) { const a = find_('HostApps', 'id', p.appId); if (a) update_('HostApps', 'id', a.id, { status: 'approved', journal: j.slug, decidedBy: u.email, decidedAt: now_() }); }
+  return { ok: true, slug: j.slug, message: 'Journal created. ' + out.join('; ') + '. ' + (res.message || '') };
+}
+
+/** Change a hosted journal's status: setup → live, or suspended. Only ACRI admins. */
+function host_status(p, u) {
+  need_(isAdmin_(u), 'Not allowed.');
+  const r = find_('Journals', 'slug', p.journal); need_(r && (r.json || {}).partner, 'Not a hosted journal.');
+  need_(['setup', 'live', 'suspended'].indexOf(p.status) >= 0, 'Unknown status.');
+  if (p.status === 'live') { const rd = hostReadiness_(p.journal); need_(rd.ready, 'Before going live, complete: ' + rd.items.filter(x => x.required && !x.ok).map(x => x.label).join('; ') + '.'); }
+  const json = Object.assign({}, r.json, { partnerStatus: p.status, active: p.status !== 'suspended' });
+  update_('Journals', 'slug', p.journal, { json: json, active: json.active, updated: now_() });
+  CacheService.getScriptCache().remove('J:' + p.journal);
+  if (prop_('GITHUB_TOKEN')) ghCommit_([{ path: 'content/journals/' + p.journal + '/journal.json', text: JSON.stringify(Object.assign(json, { board: boardFor_(p.journal, json.boardExtra) }), null, 2) }], 'Hosted journal ' + r.code + ': ' + p.status);
+  return { ok: true, message: 'Status changed to ' + p.status + '.' };
+}
+
+/** ISSN India checklist for a hosted journal. Articles cannot be published until every required item is met. */
+function hostReadiness_(slug) {
+  const j = journalRow_(slug), P = j.publisher || {};
+  const board = boardFor_(slug, []);
+  const active = activeAppointments_(slug);
+  const eic = active.filter(a => a.role === 'eic'), members = board.filter(b => b.group !== 'Publisher & journal management');
+  const complete = members.filter(b => b.designation && b.affiliation && b.address);
+  const items = [
+    { k: 'title', label: 'Full journal title', ok: !!j.name, required: true },
+    { k: 'acronym', label: 'Acronym and ISO 4 abbreviation', ok: !!(j.code && j.abbrev), required: true },
+    { k: 'scope', label: 'Aims and scope', ok: String(j.scope || '').length >= 80, required: true },
+    { k: 'frequency', label: 'Publication frequency', ok: !!j.frequency, required: true },
+    { k: 'publisher', label: 'Publisher (institution) name', ok: !!P.name, required: true },
+    { k: 'address', label: 'Publisher postal address', ok: String(P.address || '').length >= 15, required: true },
+    { k: 'contact', label: 'Publisher email or website', ok: !!(P.email || P.website), required: true },
+    { k: 'jadmin', label: 'Journal Admin has accepted', ok: active.some(a => a.role === 'jadmin'), required: true },
+    { k: 'eic', label: 'Editor-in-Chief has accepted', ok: eic.length > 0, required: true },
+    { k: 'board', label: 'Editorial board of at least 5 members with designation, institution and address', ok: complete.length >= 5, required: true, note: complete.length + ' of 5' },
+    { k: 'logo', label: 'Institution logo uploaded', ok: !!j.instLogo, required: false },
+    { k: 'issn', label: 'ISSN assigned and shown on the website', ok: !!(j.issnOnline || j.issnPrint), required: false },
+  ];
+  return { ready: items.every(x => !x.required || x.ok), items: items };
+}
+
+Object.assign(TEMPLATES, {
+  host_received: d => [`Application received: ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for applying to host <b>${esc_(d.journal)}</b> of ${esc_(d.institution)} on ACRI Journals. Hosting is free of charge.</p><p>We will review the proposal against the <a href="${siteUrl_()}/policies/journal-hosting/">Journal Hosting Policy</a> and reply by email, usually within two weeks. If it is approved, your Journal Admin and Editor-in-Chief will each receive a personal link to set up the journal.</p><p>With best wishes,<br>ACRI Journals</p>`],
+  host_declined: d => [`Your journal hosting application: ${d.journal}`, `<p>Dear ${esc_(d.name)},</p><p>Thank you for your interest in hosting <b>${esc_(d.journal)}</b> on ACRI Journals. After careful review, we are not able to host the journal at this time.</p>${d.note ? `<p>${esc_(d.note)}</p>` : ''}<p>You are welcome to apply again in future. With best wishes,<br>ACRI Journals</p>`],
 });

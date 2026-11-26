@@ -35,7 +35,7 @@ function eicEmails_(slug) {
 }
 
 function public_journals() {
-  return { ok: true, journals: all_('Journals').filter(r => String(r.active) !== 'false').map(r => { const j = journalRow_(r.slug); return { slug: j.slug, code: j.code, name: j.name, accent: j.accent, articleTypes: j.articleTypes || [], subjects: j.subjects || [] }; }) };
+  return { ok: true, journals: all_('Journals').filter(r => String(r.active) !== 'false').map(r => { const j = journalRow_(r.slug); return { slug: j.slug, code: j.code, name: j.name, accent: j.accent, articleTypes: j.articleTypes || [], subjects: j.subjects || [], school: !!(j.schoolJournal || j.slug === 'ijsri'), hosted: !!j.partner, publisher: j.partner && j.publisher ? j.publisher.name : '' }; }) };
 }
 
 // ------------------------------------------------------------ helpers
@@ -130,6 +130,8 @@ function sub_submit(p, u) {
     if (s.status === 'revision' && !has('response')) errs.push('your response to reviewers');
     const d = s.declarations || {};
     if (s.status === 'draft' && !(d.original && d.ethics && d.consent && d.license)) errs.push('all required declarations');
+    const jr = journalRow_(s.journal);
+    if (s.status === 'draft' && (jr.schoolJournal || jr.slug === 'ijsri') && !(d.guardian && String(d.supervisor || '').trim())) errs.push('parent or guardian consent and the name of the supervising teacher (required for school journals)');
     need_(!errs.length, 'Before submitting, please add: ' + errs.join(', ') + '.');
     const j = journalRow_(s.journal);
     if (s.status === 'draft') {

@@ -45,12 +45,12 @@ function rec_submit(p, u) {
 }
 function rec_list(p, u) {
   const mine = !(isAdmin_(u) || anyEic_(u));
-  const items = all_('Recommendations').filter(r => isAdmin_(u) || isEic_(u, r.journal) || r.by === u.id).filter(r => !p.mine || r.by === u.id);
+  const items = all_('Recommendations').filter(r => isAdmin_(u) || isLead_(u, r.journal) || r.by === u.id).filter(r => !p.mine || r.by === u.id);
   return { ok: true, kinds: REC_KINDS, canManage: !mine, items: items.map(r => { delete r._row; return r; }).reverse() };
 }
 /** op: status | invite (email the recommended person from the journal office, naming the board member) */
 function rec_update(p, u) {
-  const r = find_('Recommendations', 'id', p.id); need_(r && (isAdmin_(u) || isEic_(u, r.journal)), 'Not allowed.');
+  const r = find_('Recommendations', 'id', p.id); need_(r && (isAdmin_(u) || isLead_(u, r.journal)), 'Not allowed.');
   if (p.op === 'invite') {
     need_(r.email, 'There is no email address for this person.');
     const j = journalRow_(r.journal), rec = find_('Users', 'id', r.by) || {};

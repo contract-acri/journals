@@ -11,7 +11,7 @@ function fmtD_(iso) { return iso ? Utilities.formatDate(new Date(String(iso).sli
 /** Public board list for journal.json: active, signed appointments + manual extras. */
 function boardFor_(slug, extra) {
   const users = {}; all_('Users').forEach(u => users[u.id] = u);
-  const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
+  const list = activeAppointments_(slug).filter(a => String(a.showOnSite) !== 'false' && a.role !== 'jadmin').sort((a, b) => (ROLES[a.role].rank - ROLES[b.role].rank) || ((Number(a.order) || 99) - (Number(b.order) || 99)))
     .map(a => memberCard_(a, users[a.userId] || {}));
   return list.concat((extra || []).map(x => Object.assign({}, x, { group: 'Publisher & journal management' })));
 }
@@ -44,6 +44,7 @@ function syncBoard_(slug) {
 // ------------------------------------------------------------ agreement text (versioned)
 function agreementHtml_(a, u, j) {
   if (a.journal === NETWORK) return mgmtAgreementHtml_(a, u);
+  if (a.role === 'jadmin') return jadminAgreementHtml_(a, u, j);
   const role = roleLabel_(a), name = (u.given + ' ' + u.family).trim();
   const duties = {
     eic: 'set the editorial direction of the Journal; make final decisions on manuscripts on the basis of scholarly merit; appoint handling editors; ensure the integrity, timeliness and fairness of peer review; and represent the Journal',
@@ -87,10 +88,17 @@ function certificateHtml_(a, u, j) {
 }
 
 // ------------------------------------------------------------ admin / EIC actions
-function canAppoint_(u, journal, role) { if (journal === NETWORK || role === 'mgmt') return isAdmin_(u); return isAdmin_(u) || (role !== 'eic' && isEic_(u, journal)); }
+function canAppoint_(u, journal, role) {
+  if (journal === NETWORK || role === 'mgmt') return isAdmin_(u);
+  if (isAdmin_(u)) return true;
+  // A hosted journal's Journal Admin runs its whole team, including the EIC and other Journal Admins.
+  if (((u.roles.jadmin || []).indexOf(journal) >= 0) && (journalRow_(journal) || {}).partner) return true;
+  if (role === 'jadmin') return false;
+  return role !== 'eic' && isEic_(u, journal);
+}
 
 function team_list(p, u) {
-  need_(isAdmin_(u) || (p.journal && isEic_(u, p.journal)), 'Not allowed.');
+  need_(isAdmin_(u) || (p.journal && isLead_(u, p.journal)), 'Not allowed.');
   const users = {}; all_('Users').forEach(x => users[x.id] = x);
   const items = all_('Appointments').filter(a => !p.journal || a.journal === p.journal).map(a => {
     const x = users[a.userId] || {};
@@ -193,7 +201,7 @@ function appt_(token) {
 }
 function agreement_get(p) {
   const a = appt_(p.token), x = find_('Users', 'id', a.userId), j = journalRow_(a.journal);
-  return { ok: true, agreement: { mgmt: a.journal === NETWORK, status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
+  return { ok: true, agreement: { mgmt: a.journal === NETWORK, jadmin: a.role === 'jadmin', lite: a.journal === NETWORK || a.role === 'jadmin', status: a.status, role: roleLabel_(a), journal: j.name, code: j.code, accent: j.accent, start: fmtD_(a.start), end: fmtD_(a.end), name: (x.given + ' ' + x.family).trim(), email: x.email, signedAt: a.signedAt, signedName: a.signedName, html: agreementHtml_(a, x, j), needsPassword: !x.passHash, transfer: String(a.transfer) === 'true', expires: a.expires || '',
     profile: { given: x.given || '', family: x.family || '', photo: x.photo || '', bio: x.bio || '', degrees: x.degrees || '', designation: x.designation || '', department: x.department || '', affiliation: x.affiliation || '', instAddress: x.instAddress || '', instEmail: x.instEmail || '', profileUrl: x.profileUrl || '', orcid: x.orcid || '', country: x.country || 'India', scholarUrl: x.scholarUrl || '', linkedinUrl: x.linkedinUrl || '', website: x.website || '', showEmail: String(x.showEmail) === 'true', pageOff: String(x.pageOff) === 'true', subjects: Array.isArray(x.subjects) ? x.subjects.join('; ') : (x.subjects || '') },
     prefs: { reviewer: String(x.reviewer) !== 'false', reviewDays: Number(x.reviewDays) || 21, reviewMax: Number(x.reviewMax) || 2 } } };
 }
@@ -216,7 +224,7 @@ function agreement_sign(p) {
   if (p.photo && p.photo.data) prof.photo = savePhoto_(x.id, p.photo);
   if (p.signature && p.signature.data) { try { prof.signatureFileId = lettersFolder_('Signatures').createFile(Utilities.newBlob(Utilities.base64Decode(p.signature.data), p.signature.mime || 'image/png', 'signature-' + x.id + '.png')).getId(); } catch (e) { } }
   ['degrees', 'designation', 'department', 'affiliation', 'instAddress', 'instEmail', 'profileUrl', 'orcid', 'country'].forEach(k => { if (pr[k] !== undefined) prof[k] = String(pr[k]).trim(); });
-  if (p.profile && a.journal === NETWORK) need_(prof.designation, 'Please enter your designation, as it should appear on the management page.');
+  if (p.profile && (a.journal === NETWORK || a.role === 'jadmin')) need_(prof.designation, 'Please enter your designation.');
   else if (p.profile) {
     need_(prof.designation && prof.affiliation && prof.instAddress, 'Please fill in your designation, institution and full institutional address. They are shown on the editorial board page.');
     if (prof.instEmail) instEmailOk_(prof.instEmail);
@@ -321,4 +329,22 @@ function mgmtAgreementHtml_(a, u) {
 <h3>8. Ending the appointment</h3><p>Either party may end the appointment with 30 days' written notice. ACRI Journals may end it immediately for a serious breach, after giving you an opportunity to respond. Sections 3, 4 and 6 continue after the appointment ends.</p>
 <h3>9. Governing law</h3><p>This Agreement is governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat.</p>
 <h3>10. Electronic signature</h3><p>By typing your full name and selecting "I agree and sign", you sign this Agreement electronically, and the signature has the same effect as a handwritten one.</p>`;
+}
+
+// ------------------------------------------------------------ hosted journal: Journal Admin appointment
+function jadminAgreementHtml_(a, u, j) {
+  const name = (u.given + ' ' + u.family).trim(), P = j.publisher || {};
+  return `<h1 style="font-family:Georgia,serif;font-size:22px;margin:0 0 4px">Journal Admin Appointment and Hosting Terms</h1>
+<p style="color:#5E6875;margin:0 0 18px">Version ${AGREEMENT_VERSION} · ${esc_(j.name)} · Hosted on ACRI Journals</p>
+<p>This Agreement is between <b>ACRI Journals</b>, operated by ${CFG.LEGAL_ENTITY} ("ACRI Journals"), and <b>${esc_(name)}</b> ("you"), acting for <b>${esc_(P.name || 'the publishing institution')}</b> ("the Institution"), publisher of <b>${esc_(j.name)}</b> ("the Journal").</p>
+<h3>1. Appointment and term</h3><p>You are appointed Journal Admin of the Journal from <b>${fmtD_(a.start)}</b> to <b>${fmtD_(a.end)}</b>. The appointment takes effect when you sign and may be renewed.</p>
+<h3>2. The hosting service</h3><p>ACRI Journals hosts the Journal free of charge on its platform: the journal website, the ACRI Editorial System (AES) for submission and peer review, typeset article pages and PDFs, DOIs through Zenodo, and long-term preservation. The <a href="${siteUrl_()}/policies/journal-hosting/">Journal Hosting Policy</a> and <a href="${siteUrl_()}/policies/partner-journal-terms/">Hosted Journal Terms</a> form part of this Agreement.</p>
+<h3>3. Publisher and ISSN</h3><p>The Institution is the publisher of the Journal and is responsible for its content. The Institution applies for and holds the Journal's ISSN in its own name, following the rules of the ISSN National Centre for India, and keeps the publisher details on the Journal's website accurate.</p>
+<h3>4. Your responsibilities</h3><p>You will keep the Journal's details, editorial team and issues up to date in AES; make sure the Journal has a qualified Editor-in-Chief and an editorial board; and make sure every research article is peer reviewed by at least two independent reviewers under the ACRI Journals <a href="${siteUrl_()}/policies/">editorial and ethics policies</a> and the COPE Core Practices.</p>
+<h3>5. Editorial independence</h3><p>Decisions on manuscripts belong to the Journal's editors. As Journal Admin you will not decide on, or seek to influence, the outcome of any manuscript unless you also hold an editorial role for it.</p>
+${j.schoolJournal ? '<h3>6. Students under 18</h3><p>The Journal publishes work by school students. You will make sure the <a href="' + siteUrl_() + '/policies/child-safeguarding/">child safeguarding rules</a> are followed: written consent from a parent or guardian for every author under 18, supervision by a teacher or mentor, and no publication of students\' personal contact details.</p>' : ''}
+<h3>${j.schoolJournal ? 7 : 6}. Confidentiality and data protection</h3><p>You will keep manuscripts, reviews and personal data confidential and use them only for the Journal, in line with the <a href="${siteUrl_()}/policies/privacy/">Privacy Policy</a> and India's Digital Personal Data Protection Act, 2023.</p>
+<h3>${j.schoolJournal ? 8 : 7}. Branding</h3><p>The Journal is presented as published by the Institution and "Hosted on ACRI Journals". It must not be presented as a journal published by ACRI.</p>
+<h3>${j.schoolJournal ? 9 : 8}. Suspension and exit</h3><p>ACRI Journals may pause new publication in, or stop hosting, the Journal if it seriously breaches these terms, after giving the Institution notice and a chance to put things right. If hosting ends, the Institution receives its data, and articles already published remain online with their DOIs.</p>
+<h3>${j.schoolJournal ? 10 : 9}. Governing law and signature</h3><p>This Agreement is governed by the laws of India, with exclusive jurisdiction of the courts at Ahmedabad, Gujarat. By typing your full name and selecting "I agree and sign", you sign it electronically.</p>`;
 }

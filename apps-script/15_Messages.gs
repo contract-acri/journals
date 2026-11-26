@@ -24,7 +24,7 @@ function public_contact(p) {
 
 /** Who sees which messages: admins (the journal office / controller) see everything;
  *  an Editor-in-Chief sees messages addressed to the EIC of their own journal(s). */
-function canSeeMsg_(u, m) { return isAdmin_(u) || (m.to === 'eic' && m.journal && (u.roles.eic || []).indexOf(m.journal) >= 0); }
+function canSeeMsg_(u, m) { return isAdmin_(u) || (m.to === 'eic' && m.journal && isLead_(u, m.journal)); }
 function msgView_(m) { const o = Object.assign({}, m); delete o._row; o.toLabel = MSG_TO[m.to] || m.to; return o; }
 
 function msg_list(p, u) {

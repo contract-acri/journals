@@ -100,7 +100,7 @@ function session_(token) {
 
 /** Editorial roles come ONLY from active, signed, in-term appointments. Admin is a user flag. */
 function effectiveRoles_(u) {
-  const r = { admin: !!(u.roles && u.roles.admin), eic: [], senior: [], editor: [], board: [] };
+  const r = { admin: !!(u.roles && u.roles.admin), eic: [], senior: [], editor: [], board: [], jadmin: [] };
   const today = today_();
   all_('Appointments').forEach(a => {
     if (a.userId !== u.id || a.status !== 'active') return;
@@ -112,6 +112,8 @@ function effectiveRoles_(u) {
 }
 function isAdmin_(u) { return !!(u.roles && u.roles.admin); }
 function isEic_(u, j) { return isAdmin_(u) || ((u.roles.eic || []).indexOf(j) >= 0); }
+/** Journal Admin of a hosted journal, or its EIC: may run the journal's settings, team, issues, ISSN, messages and email. */
+function isLead_(u, j) { return isEic_(u, j) || ((u.roles.jadmin || []).indexOf(j) >= 0); }
 function isSenior_(u, j) { return isEic_(u, j) || ((u.roles.senior || []).indexOf(j) >= 0); }
 function isBoard_(u, j) { return isSenior_(u, j) || ((u.roles.editor || []).indexOf(j) >= 0) || ((u.roles.board || []).indexOf(j) >= 0); }
 function need_(cond, msg) { if (!cond) throw new Error(msg || 'You do not have permission to do this.'); }

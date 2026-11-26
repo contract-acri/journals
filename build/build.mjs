@@ -21,6 +21,8 @@ const journals = fs.readdirSync(path.join(CONTENT, 'journals'))
   .filter(j => j && j.active !== false)
   .sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.code.localeCompare(b.code));
 const J = Object.fromEntries(journals.map(j => [j.slug, j]));
+// ACRI's own journals, and journals hosted for schools, colleges and universities (the institution is the publisher).
+const OWN = journals.filter(j => !j.partner), HOSTED = journals.filter(j => j.partner);
 // ACRI Journals management team (written by AES to content/management.json).
 const MGMT_FILE = path.join(CONTENT, 'management.json');
 const MGMT = (() => { const used = {}; const list = fs.existsSync(MGMT_FILE) ? (readJSON(MGMT_FILE).members || []) : [];
@@ -32,12 +34,17 @@ for (const j of journals) {
   // Journal logos: uploaded PNG/SVG files win; otherwise the build generates the house-style emblem.
   j.logo = { full: has('logo.png') ? 'logo.png' : 'logo.svg', mark: has('mark.png') ? 'mark.png' : 'mark.svg', fullWhite: has('logo-white.png') ? 'logo-white.png' : 'logo-white.svg', markWhite: has('mark-white.png') ? 'mark-white.png' : 'mark-white.svg', generated: !has('logo.png') };
   j.logoBase = `/assets/journals/${j.slug}/`;
+  j.instLogoUrl = has('inst.png') ? `/assets/journals/${j.slug}/inst.png` : '';
   j.issnOnline = j.issnOnline ?? j.issn; j.issnPrint = j.issnPrint || '';
 }
 const jimg = (j, k, cls = '', alt) => `<img src="${j.logoBase}${j.logo[k]}" alt="${esc(alt ?? j.name + ' logo')}" class="${cls}">`;
 const fullLogo = (j, white) => j.logo.generated ? journalLogoSVG(j, white ? { color: '#fff' } : {}) : jimg(j, white ? 'fullWhite' : 'full', 'jfull');
 const MINIWM = `<span class="miniwm"><b>ACRI</b><i></i><span>JOURNALS</span></span>`;
-const pubInfo = () => ({ name: site.publisherName || site.legalEntity || site.publisher, address: site.publisherAddress || '', phone: site.publisherPhone || '', web: site.publisherWebsite || '' });
+const pubInfo = (j) => j && j.partner && j.publisher ? { name: j.publisher.name, address: j.publisher.address || '', phone: j.publisher.phone || '', web: j.publisher.website || '', email: j.publisher.email || '' }
+  : { name: site.publisherName || site.legalEntity || site.publisher, address: site.publisherAddress || '', phone: site.publisherPhone || '', web: site.publisherWebsite || '' };
+// "An ACRI Journals publication", or for a hosted journal "Published by <institution> · Hosted on ACRI Journals".
+const pubLine = (j) => j.partner ? `${j.instLogoUrl ? `<img class="instl" src="${j.instLogoUrl}" alt="">` : ''}Published by <b>${esc(pubInfo(j).name)}</b> · Hosted on ${MINIWM}` : `An ${MINIWM} publication`;
+const submitUrl = (j) => j.partner ? `/journals/${j.slug}/submit/` : `/portal/#/submit?journal=${j.slug}`;
 
 const articles = [];
 for (const js of fs.existsSync(path.join(CONTENT, 'articles')) ? fs.readdirSync(path.join(CONTENT, 'articles')) : []) {
@@ -65,13 +72,13 @@ const pub = articles.filter(a => !a.proof);
 const byJournal = (slug) => pub.filter(a => a.journal === slug);
 
 // ---------------------------------------------------------------- layout
-const journalsMenu = () => journals.map(j => `<a href="/journals/${j.slug}/">${jimg(j, 'mark', 'mm', '')}<span><b>${esc(j.name)}</b><small>${esc(j.code)}${j.issn ? ' · ISSN ' + esc(j.issn) : ''}</small></span></a>`).join('');
+const journalsMenu = () => OWN.map(j => `<a href="/journals/${j.slug}/">${jimg(j, 'mark', 'mm', '')}<span><b>${esc(j.name)}</b><small>${esc(j.code)}${j.issn ? ' · ISSN ' + esc(j.issn) : ''}</small></span></a>`).join('') + (HOSTED.length ? `<a href="/journals/#hosted" class="mm-more"><span><b>Hosted journals</b><small>${HOSTED.length} journal${HOSTED.length === 1 ? '' : 's'} from schools and universities</small></span></a>` : '');
 
 function layout({ title, desc = site.description, canonical, head = '', body, j = null, noindex = false, bodyClass = '' }) {
   const accent = j ? `<style>:root{--accent:${j.accent};--accent-tint:${j.accentTint || '#F3F5F8'}}</style>` : '';
   const fullTitle = title ? `${title} | ${j ? j.code + ' | ' : ''}${site.name}` : `${site.name} — ${site.tagline}`;
   return `<!doctype html>
-<html lang="${site.language}" data-api="${esc(site.apiUrl)}">
+<html lang="${site.language}" data-api="${esc(site.apiUrl)}"${j && j.partner ? ` data-hosted="${j.slug}"` : ''}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -126,9 +133,9 @@ function journalMast(j) {
   return `<div class="jmast"><div class="wrap">
   <div class="top">
     <a class="jmark" href="/journals/${j.slug}/">${jimg(j, 'mark')}</a>
-    <div><div class="cob">An ${MINIWM} publication</div><h1><a href="/journals/${j.slug}/">${esc(j.name)}</a></h1>
+    <div><div class="cob">${pubLine(j)}</div><h1><a href="/journals/${j.slug}/">${esc(j.name)}</a></h1>
     <div class="sub">${j.issnOnline ? `e-ISSN ${esc(j.issnOnline)} · ` : ''}${j.issnPrint ? `p-ISSN ${esc(j.issnPrint)} · ` : ''}${esc(j.frequency || '')} · Open access · Since ${esc(j.startYear || j.since || '')}</div></div>
-    <div class="cta"><a class="btn btn-ghost" href="/journals/${j.slug}/for-authors/">Author guidelines</a><a class="btn btn-accent" href="/portal/#/submit?journal=${j.slug}">Submit manuscript</a></div>
+    <div class="cta"><a class="btn btn-ghost" href="/journals/${j.slug}/for-authors/">Author guidelines</a>${j.partner ? `<a class="btn btn-ghost" href="/journals/${j.slug}/login/">Sign in</a>` : ''}<a class="btn btn-accent" href="${submitUrl(j)}">Submit manuscript</a></div>
   </div>
   <nav class="jtabs" aria-label="${esc(j.code)}">
     ${t('home', `/journals/${j.slug}/`, 'Home')}
@@ -147,10 +154,10 @@ function footer() {
   <div class="cols5">
     <div><a class="brand" href="/" aria-label="ACRI Journals">${WORDMARK}</a>
       <p style="margin:16px 0 0;max-width:320px">${esc(site.description)}</p></div>
-    <div><h5>Journals</h5>${journals.map(j => `<a href="/journals/${j.slug}/">${esc(j.code)}</a>`).join('')}</div>
+    <div><h5>Journals</h5>${OWN.map(j => `<a href="/journals/${j.slug}/">${esc(j.code)}</a>`).join('')}${HOSTED.length ? '<a href="/journals/#hosted">Hosted journals</a>' : ''}<a href="/start-a-journal/">Start a journal</a></div>
     <div><h5>Publish</h5><a href="/for-authors/">For Authors</a><a href="/for-authors/#template">Manuscript template</a><a href="/portal/#/submit">Submit a manuscript</a><a href="/for-reviewers/">For Reviewers</a></div>
     <div><h5>Policies</h5><a href="/policies/privacy/">Privacy</a><a href="/policies/terms/">Terms of use</a><a href="/policies/open-access/">Open access</a><a href="/policies/peer-review/">Peer review</a><a href="/policies/ethics/">Publication ethics</a><a href="/policies/">All policies →</a></div>
-    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/management/">Management</a><a href="/how-it-works/">How it works</a><a href="/aes/">AES editorial system</a><a href="/one/">ACRI One</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/one/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
+    <div><h5>Network</h5><a href="/about/">About ACRI Journals</a><a href="/management/">Management</a><a href="/start-a-journal/">Start a journal</a><a href="/how-it-works/">How it works</a><a href="/aes/">AES editorial system</a><a href="/one/">ACRI One</a><a href="/partners/">Partners</a><a href="/search/">Search</a><a href="/rss.xml">RSS</a><a href="/contact/">Contact</a><a href="/one/">Sign in</a><a href="https://www.acriverse.acriindia.org">ACRIVERSE</a></div>
   </div>
   <div class="legal"><span>© ${new Date().getFullYear()} ACRI Journals · Part of ACRIVERSE. Website © ${esc(pubInfo().name)}; articles © their authors, open access under the licence stated on each article. Published by ${esc(pubInfo().name)}.</span><span><a href="/policies/privacy/">Privacy</a> · <a href="/policies/terms/">Terms</a> · <a href="/policies/">All policies</a> · <a href="/about/#contact">Contact</a></span></div>
 </div></footer>`;
@@ -158,7 +165,7 @@ function footer() {
 
 // ---------------------------------------------------------------- journal particulars (ISSN India / DOAJ format)
 function particulars(j) {
-  const P = pubInfo(), row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  const P = pubInfo(j), row = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
   return `<dl>${row('Title', esc(j.name))}${row('Abbreviation', esc(j.abbrev))}${row('e-ISSN', esc(j.issnOnline))}${row('p-ISSN', esc(j.issnPrint))}
     ${row('Frequency', esc(j.frequency))}${row('Starting year', esc(j.startYear || j.since))}${row('Subject', esc(j.subjectArea || (j.subjects || []).slice(0, 3).join(', ')))}
     ${row('Language', esc((j.languages || ['English']).join(', ')))}${row('Format', esc((j.formats || ['Online']).join(', ')))}${row('Access', 'Open access (CC BY 4.0)')}
@@ -244,7 +251,7 @@ function scholarMeta(a) {
   add('citation_journal_title', j.name);
   add('citation_journal_abbrev', j.abbrev);
   add('citation_issn', j.issn);
-  add('citation_publisher', site.publisher);
+  add('citation_publisher', pubInfo(j).name || site.publisher);
   add('citation_volume', a.volume);
   add('citation_issue', a.issue);
   add('citation_firstpage', a.firstPage || elocator(a));
@@ -268,7 +275,7 @@ function scholarMeta(a) {
     '@context': 'https://schema.org', '@type': 'ScholarlyArticle',
     headline: strip(a.title).slice(0, 110), name: strip(a.title), datePublished: a.published,
     author: (a.authors || []).map(x => ({ '@type': 'Person', name: fullName(x), ...(x.orcid ? { identifier: `https://orcid.org/${x.orcid}` } : {}), affiliation: (x.affiliations || []).map(id => ({ '@type': 'Organization', name: (a.affiliations || []).find(f => f.id === id)?.name })) })),
-    publisher: { '@type': 'Organization', name: site.publisher, url: site.publisherUrl },
+    publisher: j.partner ? { '@type': 'Organization', name: pubInfo(j).name, ...(pubInfo(j).web ? { url: pubInfo(j).web } : {}) } : { '@type': 'Organization', name: site.publisher, url: site.publisherUrl },
     isPartOf: { '@type': 'PublicationIssue', issueNumber: a.issue, isPartOf: { '@type': 'PublicationVolume', volumeNumber: a.volume, isPartOf: { '@type': 'Periodical', name: j.name, issn: j.issn || undefined } } },
     abstract: abstractText(a), keywords: (a.keywords || []).join(', '), url: a.url, inLanguage: a.language || site.language,
     ...(a.doi ? { sameAs: doiUrl(a), identifier: { '@type': 'PropertyValue', propertyID: 'DOI', value: a.doi } } : {}),
@@ -464,7 +471,7 @@ function homePage() {
   const latest = pub.slice(0, 9);
   const authorsN = new Set(pub.flatMap(a => (a.authors || []).map(x => ((x.given || '') + ' ' + (x.family || '')).trim().toLowerCase()))).size;
   const doiN = pub.filter(a => a.doi).length;
-  const subjects = [...new Set(journals.map(j => j.subjectArea || '').filter(Boolean))];
+  const subjects = [...new Set(OWN.map(j => j.subjectArea || '').filter(Boolean))];
   const H1 = esc((/from India/i.test(site.homeHeadline || '') ? '' : site.homeHeadline) || 'Rigorous research,'), H1b = esc((/to the world/i.test(site.homeHeadlineAccent || '') ? '' : site.homeHeadlineAccent) || 'open to everyone.');
   const intro = esc(site.homeIntro || 'ACRI Journals publishes peer-reviewed, open-access journals across ' + (subjects.length ? subjects.join(', ').replace(/, ([^,]*)$/, ' and $1').toLowerCase() : 'business and education') + '. Every article is free to read, carefully reviewed and built to be found, cited and preserved.');
   const plain = (t) => strip(String(t || ''));
@@ -474,7 +481,7 @@ function homePage() {
   const mtext = site.homeManifesto || 'Good research should not wait behind a paywall, or behind a famous name. We review every manuscript *on its merit*, publish it *openly*, and keep it *permanently*, so new voices and established scholars reach readers *on equal terms*.';
   const manifesto = esc(mtext).replace(/\*([^*]+)\*/g, '<em>$1</em>');
   const stem = (w) => w.toLowerCase().replace(/(ing|ment|ments|ship|al|s)$/,'').slice(0, 7);
-  const topics = journals.flatMap(j => (j.subjects || []).map(name => {
+  const topics = OWN.flatMap(j => (j.subjects || []).map(name => {
     const keys = name.toLowerCase().split(/[^a-z]+/).filter(w => w.length > 3 && !['and', 'with', 'from'].includes(w)).map(stem);
     const n = byJournal(j.slug).filter(a => { const t = artText(a) + ' ' + strip(abstractText(a) || '').toLowerCase(); return keys.some(k => t.includes(k)); }).length;
     return { name, code: j.code, c: j.accent, n };
@@ -497,7 +504,7 @@ function homePage() {
     </div>` : `<div class="hx-reel"><div class="hx-card on"><div class="hx-art">${coverArt('acri', '#1F7A4D')}</div><span class="hx-tag">Now accepting submissions</span><h3>Open-access research from the ACRI journal network</h3></div></div>`}
   </div>
 </div>
-<div class="wrap hx-stats">${count(journals.length, journals.length === 1 ? 'Journal' : 'Journals')}${count(pub.length, 'Articles published')}${count(authorsN, 'Authors')}${count(doiN, 'DOIs registered')}${count(100, 'Free to read', '%')}</div>
+<div class="wrap hx-stats">${count(OWN.length, OWN.length === 1 ? 'Journal' : 'Journals')}${count(pub.length, 'Articles published')}${count(authorsN, 'Authors')}${count(doiN, 'DOIs registered')}${count(100, 'Free to read', '%')}</div>
 </section>
 ${ticker.length ? `<section class="hx-ticker" aria-label="Latest titles"><div class="hx-track">${[0, 1].map(k => `<div class="hx-run"${k ? ' aria-hidden="true"' : ''}>${ticker.map(a => `<a href="${a.path}"${k ? ' tabindex="-1"' : ''}><b style="color:${a.j.accent === '#0B2545' ? '#7DB4F0' : 'var(--hx-tick)'}">${esc(a.j.code)}</b>${esc(plain(a.title).slice(0, 90))}${plain(a.title).length > 90 ? '…' : ''}</a>`).join('<i>✦</i>')}<i>✦</i></div>`).join('')}</div></section>` : ''}
 
@@ -511,12 +518,14 @@ ${ticker.length ? `<section class="hx-ticker" aria-label="Latest titles"><div cl
 </div></section>
 
 <section class="hx-sec hx-journals" id="journals"><div class="wrap">
-  <div class="hx-sh"><div><span class="hx-k">The network</span><h2>${journals.length} journals. One standard.</h2></div><a class="hx-more" href="/journals/">All journals →</a></div>
-  <div class="hx-jgrid">${journals.map((j, i) => { const n = byJournal(j.slug).length; return `<a class="hx-j reveal" href="/journals/${j.slug}/" style="--c:${j.accent};transition-delay:${i * 80}ms">
+  <div class="hx-sh"><div><span class="hx-k">The network</span><h2>${OWN.length} journals. One standard.</h2></div><a class="hx-more" href="/journals/">All journals →</a></div>
+  <div class="hx-jgrid">${OWN.map((j, i) => { const n = byJournal(j.slug).length; return `<a class="hx-j reveal" href="/journals/${j.slug}/" style="--c:${j.accent};transition-delay:${i * 80}ms">
     <div class="hx-j-top">${jimg(j, 'markWhite', 'hx-jm', '')}<span class="hx-j-code">${esc(j.code)}</span></div>
     <h3>${esc(j.name)}</h3><p>${esc((j.scope || '').slice(0, 150))}${(j.scope || '').length > 150 ? '…' : ''}</p>
     <div class="hx-j-meta"><span>${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) : 'ISSN applied'}</span><span>${esc(j.frequency || '')}</span><span>${n ? n + ' article' + (n === 1 ? '' : 's') : 'New journal'}</span></div>
     <span class="hx-j-go">Enter journal <b>→</b></span></a>`; }).join('')}</div>
+  ${HOSTED.length ? `<div class="hx-hosted" id="hosted"><span class="hx-k">Hosted on ACRI Journals</span><div class="hx-hgrid">${HOSTED.map(h => `<a href="/journals/${h.slug}/" style="--c:${h.accent}">${h.instLogoUrl ? `<img src="${h.instLogoUrl}" alt="">` : `<i>${esc(h.code)}</i>`}<span><b>${esc(h.name)}</b><small>${esc(pubInfo(h).name)}</small></span></a>`).join('')}</div></div>` : ''}
+  <a class="hx-start reveal" href="/start-a-journal/"><div><span class="hx-k">For schools, colleges and universities</span><h3>Start your institution's journal with us, free.</h3><p>Your journal, your editors, your name as publisher. We provide the website, peer-review system, DOIs and preservation.</p></div><span class="hx-btn hx-btn-g">Start a journal <span>→</span></span></a>
 </div></section>
 
 ${topics.length ? `<section class="hx-sec hx-topics"><div class="wrap">
@@ -563,7 +572,8 @@ x.fillStyle='rgba(200,225,255,.55)';x.beginPath();x.arc(P[a].x,P[a].y,P[a].r,0,7
 
 function journalsIndex() {
   return layout({ title: 'Journals', canonical: BASE + '/journals/', body: `<div class="wrap page"><div class="page-h"><span class="kicker">The network</span><h1>Our Journals</h1><p>Each ACRI journal is edited independently by its own Editor-in-Chief and editorial board, and shares the network's standards for peer review, open access and production.</p></div>
-  <div class="grid3">${journals.map(j => `<a class="jcard" href="/journals/${j.slug}/" style="--accent:${j.accent}"><div class="cov">${jimg(j, 'markWhite', 'cm', '')}<div><small>${esc(j.school || '')}</small><b>${esc(j.code)}</b></div></div><div class="bd"><h3>${esc(j.name)}</h3><p>${esc(j.scope)}</p><div class="issn">${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) + ' · ' : ''}${esc(j.frequency || '')}</div></div></a>`).join('')}</div></div>` });
+  <div class="grid3">${OWN.map(j => `<a class="jcard" href="/journals/${j.slug}/" style="--accent:${j.accent}"><div class="cov">${jimg(j, 'markWhite', 'cm', '')}<div><small>${esc(j.school || '')}</small><b>${esc(j.code)}</b></div></div><div class="bd"><h3>${esc(j.name)}</h3><p>${esc(j.scope)}</p><div class="issn">${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) + ' · ' : ''}${esc(j.frequency || '')}</div></div></a>`).join('')}</div>
+  ${HOSTED.length ? `<section class="toc-sec" id="hosted"><h2>Hosted journals</h2><p class="meta" style="margin:8px 0 18px">Journals published by schools, colleges and universities and hosted on ACRI Journals. Each is published and edited by its own institution. <a href="/start-a-journal/">Start a journal →</a></p><div class="grid3">${HOSTED.map(j => `<a class="jcard" href="/journals/${j.slug}/" style="--accent:${j.accent}"><div class="cov">${j.instLogoUrl ? `<img class="cm" src="${j.instLogoUrl}" alt="" style="background:#fff;border-radius:8px;padding:4px">` : jimg(j, 'markWhite', 'cm', '')}<div><small>${esc(pubInfo(j).name)}</small><b>${esc(j.code)}</b></div></div><div class="bd"><h3>${esc(j.name)}</h3><p>${esc(j.scope)}</p><div class="issn">${j.issnOnline ? 'e-ISSN ' + esc(j.issnOnline) + ' · ' : ''}${esc(j.frequency || '')} · Hosted on ACRI Journals</div></div></a>`).join('')}</div></section>` : `<section class="toc-sec"><h2>For schools, colleges and universities</h2><p style="margin-top:12px">Institutions can run their own peer-reviewed journal on ACRI Journals, free of charge. <a href="/start-a-journal/">Start a journal →</a></p></section>`}</div>` });
 }
 
 function onlineFirst(j = null) {
@@ -680,7 +690,7 @@ function boardPage(j) {
   };
   return layout({ j, title: 'Editorial Board', canonical: BASE + `/journals/${j.slug}/editorial-board/`, body: `<div class="wrap page"><div class="page-h"><span class="kicker">${esc(j.code)}</span><h1>Editorial Board</h1><p>The editors set the journal's direction, handle manuscripts and uphold its standards of review. Every editor has agreed to serve, signs the <a href="/policies/editorial-independence/">ACRI Journals Editorial Agreement</a> and serves a fixed term. The board is reviewed at least once a year.</p></div>
   ${keys.map(r => `<section class="toc-sec"><h2>${esc(r)}</h2><div class="board" style="margin-top:18px">${groups[r].map(card).join('')}</div></section>`).join('') || '<p class="meta">The editorial board is being appointed.</p>'}
-  <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo().name)}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
+  <section class="toc-sec"><h2>Editorial office</h2><div class="prose" style="margin-top:14px;font-size:16px">${esc(pubInfo(j).name)}${j.partner && pubInfo(j).address ? ', ' + esc(pubInfo(j).address) : ''}. To reach the journal office or the Editor-in-Chief, use the <a href="/contact/?journal=${j.slug}">contact form</a>.</div></section>
   </div>` });
 }
 
@@ -750,13 +760,13 @@ function mgmtPersonPage(p) {
 
 function journalAbout(j) {
   currentTab = 'about';
-  const P = pubInfo(), F = site.fees || {};
+  const P = pubInfo(j), F = site.fees || {};
   const fees = F.confirmed ? (Number(F.apc) > 0 ? `${esc(j.code)} charges an article processing charge of ${esc(F.currency || 'INR')} ${esc(F.apc)} after acceptance. There are no submission or review fees. ${esc(F.note || '')} See the <a href="/policies/fees/">fees and waivers policy</a>.` : `${esc(j.code)} charges <b>no fees of any kind</b>: no submission, review, processing or publication charges. Publication costs are met by the publisher.`) : `There are no submission or peer-review fees. See the <a href="/policies/fees/">fees and waivers policy</a>.`;
   return layout({ j, title: 'About', canonical: BASE + `/journals/${j.slug}/about/`, body: `<div class="wrap page cols"><nav class="side-nav"><a href="#scope">Aims and scope</a><a href="#particulars">Journal particulars</a><a href="#ownership">Ownership & management</a><a href="#review">Peer review</a><a href="#fees">Fees</a><a href="#oa">Open access & copyright</a><a href="#indexing">Indexing & archiving</a><a href="#contact">Contact</a></nav>
-  <div class="prose"><div class="jabout-logos"><div class="jl">${fullLogo(j)}</div><div class="ap">An ${MINIWM} publication</div></div><h1 style="font:600 34px/1.2 var(--serif);margin:18px 0 18px">About ${esc(j.name)}</h1>
+  <div class="prose"><div class="jabout-logos"><div class="jl">${fullLogo(j)}</div><div class="ap">${pubLine(j)}</div></div><h1 style="font:600 34px/1.2 var(--serif);margin:18px 0 18px">About ${esc(j.name)}</h1>
   <h2 id="scope">Aims and scope</h2><p>${esc(j.scope)}</p><p><b>Subjects:</b> ${(j.subjects || []).map(esc).join(', ')}.</p><p><b>Article types:</b> ${(j.articleTypes || []).map(esc).join(', ')}.</p><p><b>Audience:</b> researchers, practitioners, educators and policymakers. ${esc(j.code)} is an ${esc(j.scopeType || 'international')} journal and welcomes submissions from authors in every country.</p>
   <h2 id="particulars">Journal particulars</h2><div class="rbox" style="font-family:var(--sans)">${particulars(j)}</div>
-  <h2 id="ownership">Ownership and management</h2><p>${esc(j.name)} is owned and published by <b>${esc(P.name)}</b>${P.web ? ` (<a href="${esc(P.web)}">${esc(P.web.replace('https://', ''))}</a>)` : ''}, and is published on the ACRI Journals platform, part of ACRIVERSE. ${j.school ? `It is affiliated with the ${esc(j.school)}. ` : ''}The publisher appoints the editors for fixed terms under a written agreement and does not take part in decisions on individual manuscripts. Editors are not paid according to the number of articles accepted. See <a href="/policies/editorial-independence/">Editorial independence and governance</a> and the <a href="editorial-board/">Editorial Board</a>.</p>
+  <h2 id="ownership">Ownership and management</h2><p>${esc(j.name)} is owned and published by <b>${esc(P.name)}</b>${P.web ? ` (<a href="${esc(P.web)}">${esc(P.web.replace('https://', ''))}</a>)` : ''}, ${j.partner ? 'and is hosted free of charge on the ACRI Journals platform. ACRI Journals provides the website, the editorial system, DOIs and preservation; the institution is responsible for the journal and its content (see the <a href="/policies/journal-hosting/">Journal Hosting Policy</a>).' : 'and is published on the ACRI Journals platform, part of ACRIVERSE.'} ${j.school ? `It is affiliated with the ${esc(j.school)}. ` : ''}The publisher appoints the editors for fixed terms under a written agreement and does not take part in decisions on individual manuscripts. Editors are not paid according to the number of articles accepted. See <a href="/policies/editorial-independence/">Editorial independence and governance</a> and the <a href="editorial-board/">Editorial Board</a>.</p>
   <h2 id="review">Peer review</h2><p>${esc(j.code)} uses <b>double-blind peer review</b>. Neither authors nor reviewers learn each other's identities. Each research manuscript is first screened by the editorial office (completeness, anonymisation, similarity check) and by the Editor-in-Chief or a Senior Editor (scope and quality). Manuscripts may be declined at this stage without external review.</p>
   <p>Manuscripts that pass screening are sent to <b>at least two independent external experts</b>, chosen by the handling editor. Reviewers are never members of the editorial office. Reviewers are asked to report within 21 days, and the first decision usually comes within 6–8 weeks of submission. Supplementary material is reviewed along with the manuscript. Reviews are anonymous and are not published with the article.</p>
   <p>Reviewers must keep manuscripts confidential, must not contact the authors, may involve a colleague only with the editor's permission, and must not use generative AI to write or improve their reviews. Authors may suggest reviewers to widen the pool, but editors are not bound by these suggestions. Reviewers are assigned by editors, not by automated or AI tools.</p>
@@ -878,6 +888,59 @@ function aesErrorsPage() {
   <p class="meta" style="margin-top:30px">Still stuck? <a href="/contact/">Contact the editorial office</a> and include the code and reference.</p></div>`, head: '<meta name="robots" content="noindex">' });
 }
 
+// ---------------------------------------------------------------- journal hosting
+// Branded sign-in / submit entry points for hosted journals. They remember the journal's branding for the portal,
+// which then shows the institution's logo and journal name around the ACRI One sign-in.
+function hostEntry(j, mode) {
+  const brand = { slug: j.slug, code: j.code, name: j.name, accent: j.accent, publisher: pubInfo(j).name, inst: j.instLogoUrl || '' };
+  const target = mode === 'submit' ? `/portal/#/submit?journal=${j.slug}` : '/portal/#/login';
+  const body = `<div class="wrap page narrow"><div class="hentry" style="--c:${j.accent}">
+    <div class="hentry-logos">${j.instLogoUrl ? `<img src="${j.instLogoUrl}" alt="${esc(pubInfo(j).name)}">` : ''}${jimg(j, 'mark', 'hm', '')}</div>
+    <h1>${esc(j.name)}</h1><p class="meta">${esc(pubInfo(j).name)} · Hosted on ACRI Journals</p>
+    <p>${mode === 'submit' ? 'Opening the submission form…' : 'Opening the sign-in page…'}</p>
+    <p><a class="btn btn-accent" href="${target}">${mode === 'submit' ? 'Continue to submit' : 'Continue to sign in'}</a></p>
+    <p class="meta" style="margin-top:22px">Authors, reviewers and editors use one ACRI One account for every journal on ACRI Journals.</p></div></div>
+  <script>try{sessionStorage.setItem('aes_brand',${JSON.stringify(JSON.stringify(brand))})}catch(e){};location.replace(${JSON.stringify(target)});</script>`;
+  return layout({ j, title: mode === 'submit' ? 'Submit a manuscript' : 'Sign in', canonical: BASE + `/journals/${j.slug}/${mode}/`, body, head: '<meta name="robots" content="noindex">' });
+}
+
+function startJournalPage() {
+  const steps = [['Apply', 'Tell us about your institution and the journal you want to run. It takes about ten minutes.'], ['Review', 'We check the proposal against the Journal Hosting Policy and reply, usually within two weeks.'], ['Set up', 'Your Journal Admin and Editor-in-Chief receive personal links. You add your board, logo and details in AES.'], ['Go live', 'Once the journal meets the ISSN India checklist, you start accepting and publishing papers, and apply for your ISSN.']];
+  const body = `<div class="wrap page"><div class="sj-hero"><span class="kicker">For schools, colleges and universities</span><h1>Start your institution's journal, free.</h1><p>Run a peer-reviewed, open-access journal under your institution's own name, on the platform behind ACRI Journals. Your journal, your editors, your name as publisher. We look after the technology.</p><a class="btn btn-accent" href="#apply">Apply now</a> <a class="btn btn-ghost" href="/policies/journal-hosting/">Read the hosting policy</a></div>
+  <section class="toc-sec"><h2>What you get</h2><div class="grid3" style="margin-top:18px">${[['Your own journal website', 'At acriindia.org.in/journals/your-journal/, with your journal name, colours and your institution\'s logo.'], ['Your own sign-in page', 'A branded sign-in for your authors, reviewers and editors at /journals/your-journal/login/.'], ['A complete peer-review system', 'AES handles submission, double-blind review, decisions, proofs and publication.'], ['DOIs and preservation', 'Every article gets a DOI through Zenodo (CERN) and is preserved permanently.'], ['Found by Google Scholar', 'Typeset article pages and PDFs with the metadata indexers read.'], ['Help with your ISSN', 'A ready-made ISSN pack and an automatic checklist of what ISSN India needs.']].map(([t, d]) => `<div class="card"><h3>${t}</h3><p>${d}</p></div>`).join('')}</div></section>
+  <section class="toc-sec"><h2>How it works</h2><ol class="sj-steps">${steps.map(([t, d], i) => `<li><b>${i + 1}</b><div><h4>${t}</h4><p>${d}</p></div></li>`).join('')}</ol></section>
+  <section class="toc-sec"><h2>The rules, in short</h2><ul class="prose" style="margin-top:12px">
+    <li><b>Free, for everyone.</b> No fees for your institution, and your journal may not charge authors either.</li>
+    <li><b>Your institution is the publisher</b> and applies for the ISSN in its own name. ACRI Journals is the host.</li>
+    <li><b>Real peer review:</b> at least two independent reviewers for every research article, under COPE-aligned ethics policies.</li>
+    <li><b>A Journal Admin, an Editor-in-Chief and a board of at least five</b>, each with full details on the website.</li>
+    <li><b>School journals</b> follow our <a href="/policies/child-safeguarding/">child safeguarding rules</a>.</li></ul>
+    <p class="meta" style="margin-top:10px">Full details: <a href="/policies/journal-hosting/">Journal Hosting Policy</a> · <a href="/policies/partner-journal-terms/">Hosted Journal Terms</a> · <a href="/policies/issn-and-publisher/">ISSN and publisher responsibilities</a> · <a href="/policies/hosting-suspension-and-exit/">Suspension and exit</a></p></section>
+  <section class="toc-sec" id="apply"><h2>Apply to host your journal</h2>
+  <form class="cform" data-api="hostApply" novalidate style="margin-top:16px">
+    <h4 class="sj-h">Your institution</h4>
+    <div class="cgrid"><label>Institution name *<input name="institution" required maxlength="200"></label><label>Type<select name="instType"><option>School</option><option>College</option><option>University</option><option>Research institute</option><option>Other</option></select></label>
+    <label>City<input name="city" maxlength="80"></label><label>Country<input name="country" value="India" maxlength="60"></label><label>Website<input name="website" placeholder="https://"></label></div>
+    <label>Postal address<input name="address" maxlength="400"></label>
+    <h4 class="sj-h">You</h4>
+    <div class="cgrid"><label>Your name *<input name="contactName" required maxlength="120"></label><label>Your role<input name="contactRole" placeholder="e.g. Principal, Dean, Head of Department" maxlength="120"></label>
+    <label>Official email * <small>(not Gmail or Yahoo)</small><input name="contactEmail" type="email" required></label><label>Phone<input name="phone" maxlength="30"></label></div>
+    <h4 class="sj-h">The journal</h4>
+    <div class="cgrid"><label>Proposed journal name *<input name="journalName" required maxlength="200"></label><label>Acronym<input name="acronym" maxlength="12" placeholder="e.g. JSRS"></label>
+    <label>Frequency<select name="frequency"><option>Continuous</option><option>Annual</option><option>Biannual</option><option>Quarterly</option></select></label><label>Who will publish in it?<input name="audience" placeholder="e.g. our students, faculty, researchers nationally"></label></div>
+    <label>Aims and scope *<textarea name="scope" rows="5" required maxlength="3000" placeholder="What the journal will publish, for whom, and why."></textarea></label>
+    <label>Subjects<input name="subjects" placeholder="Separate with semicolons"></label>
+    <div class="cgrid"><label>Proposed Editor-in-Chief<input name="eicName"></label><label>Editor-in-Chief's email<input name="eicEmail" type="email"></label>
+    <label>Journal Admin's email <small>(if not you)</small><input name="adminEmail" type="email"></label></div>
+    <label>Anything else<textarea name="notes" rows="3" maxlength="2000"></textarea></label>
+    <label class="hp" aria-hidden="true">Leave this empty<input name="website2" tabindex="-1" autocomplete="off"></label>
+    <label class="chk"><input type="checkbox" name="agree"> I have read the <a href="/policies/journal-hosting/">Journal Hosting Policy</a> and apply on behalf of my institution with its approval.</label>
+    <button class="btn btn-primary" type="submit">Send application</button>
+    <div class="c-msg" role="status" aria-live="polite"></div>
+  </form></section></div>`;
+  return layout({ title: 'Start a journal', canonical: BASE + '/start-a-journal/', desc: 'Schools, colleges and universities can run their own peer-reviewed, open-access journal on ACRI Journals, free of charge.', body });
+}
+
 function contactPage() {
   const P = pubInfo();
   const jopts = journals.map(j => `<option value="${j.slug}">${esc(j.code)}: ${esc(j.name)}</option>`).join('');
@@ -945,7 +1008,7 @@ ${list.slice(0, 50).map(a => `<item><title>${esc(strip(a.title))}</title><link>$
 const pendingPngs = [];
 function doajXml(j, list) {
   const x = (t) => esc(strip(String(t ?? '')));
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<records>\n${list.map(a => `<record><language>eng</language><publisher>${x(pubInfo().name)}</publisher><journalTitle>${x(j.name)}</journalTitle>${j.issnOnline ? `<eissn>${x(j.issnOnline)}</eissn>` : ''}<publicationDate>${x(a.published)}</publicationDate><volume>${x(a.volume)}</volume><issue>${x(a.issue)}</issue><startPage>${x(a.firstPage || elocator(a))}</startPage>${a.lastPage ? `<endPage>${x(a.lastPage)}</endPage>` : ''}${a.doi ? `<doi>${x(a.doi)}</doi>` : ''}<publisherRecordId>${x(a.id)}</publisherRecordId><documentType>article</documentType><title language="eng">${x(a.title)}</title><authors>${(a.authors || []).map(au => `<author><name>${x(fullName(au))}</name>${(au.affiliations || [])[0] ? `<affiliationId>${au.affiliations[0]}</affiliationId>` : ''}${au.orcid ? `<orcid_id>https://orcid.org/${x(au.orcid)}</orcid_id>` : ''}</author>`).join('')}</authors><affiliationsList>${(a.affiliations || []).map(f => `<affiliationName affiliationId="${f.id}">${x(f.name)}</affiliationName>`).join('')}</affiliationsList>${abstractText(a) ? `<abstract language="eng">${x(abstractText(a))}</abstract>` : ''}<fullTextUrl format="html">${x(a.url)}</fullTextUrl>${a.keywords?.length ? `<keywords language="eng">${a.keywords.map(k => `<keyword>${x(k)}</keyword>`).join('')}</keywords>` : ''}</record>`).join('\n')}\n</records>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<records>\n${list.map(a => `<record><language>eng</language><publisher>${x(pubInfo(a.j).name)}</publisher><journalTitle>${x(j.name)}</journalTitle>${j.issnOnline ? `<eissn>${x(j.issnOnline)}</eissn>` : ''}<publicationDate>${x(a.published)}</publicationDate><volume>${x(a.volume)}</volume><issue>${x(a.issue)}</issue><startPage>${x(a.firstPage || elocator(a))}</startPage>${a.lastPage ? `<endPage>${x(a.lastPage)}</endPage>` : ''}${a.doi ? `<doi>${x(a.doi)}</doi>` : ''}<publisherRecordId>${x(a.id)}</publisherRecordId><documentType>article</documentType><title language="eng">${x(a.title)}</title><authors>${(a.authors || []).map(au => `<author><name>${x(fullName(au))}</name>${(au.affiliations || [])[0] ? `<affiliationId>${au.affiliations[0]}</affiliationId>` : ''}${au.orcid ? `<orcid_id>https://orcid.org/${x(au.orcid)}</orcid_id>` : ''}</author>`).join('')}</authors><affiliationsList>${(a.affiliations || []).map(f => `<affiliationName affiliationId="${f.id}">${x(f.name)}</affiliationName>`).join('')}</affiliationsList>${abstractText(a) ? `<abstract language="eng">${x(abstractText(a))}</abstract>` : ''}<fullTextUrl format="html">${x(a.url)}</fullTextUrl>${a.keywords?.length ? `<keywords language="eng">${a.keywords.map(k => `<keyword>${x(k)}</keyword>`).join('')}</keywords>` : ''}</record>`).join('\n')}\n</records>`;
 }
 async function main() {
   fs.rmSync(DIST, { recursive: true, force: true });
@@ -954,7 +1017,7 @@ async function main() {
   copyDir(path.join(CONTENT, 'people'), path.join(DIST, 'assets', 'people'));
   for (const j of journals) {
     const out = path.join(DIST, 'assets/journals', j.slug); fs.mkdirSync(out, { recursive: true });
-    for (const f of ['logo.png', 'mark.png', 'logo-white.png', 'mark-white.png', 'logo.svg', 'mark.svg']) { const src = path.join(CONTENT, 'journals', j.slug, f); if (fs.existsSync(src)) fs.copyFileSync(src, path.join(out, f)); }
+    for (const f of ['logo.png', 'mark.png', 'logo-white.png', 'mark-white.png', 'logo.svg', 'mark.svg', 'inst.png']) { const src = path.join(CONTENT, 'journals', j.slug, f); if (fs.existsSync(src)) fs.copyFileSync(src, path.join(out, f)); }
     if (j.logo.generated) {
       fs.writeFileSync(path.join(out, 'logo.svg'), journalLogoSVG(j));
       fs.writeFileSync(path.join(out, 'logo-white.svg'), journalLogoSVG(j, { color: '#fff' }));
@@ -980,6 +1043,8 @@ async function main() {
   page('/how-it-works/', howItWorksPage());
   page('/aes/', aesPage());
   page('/management/', managementPage());
+  page('/start-a-journal/', startJournalPage());
+  for (const j of HOSTED) { page(`/journals/${j.slug}/login/`, hostEntry(j, 'login')); page(`/journals/${j.slug}/submit/`, hostEntry(j, 'submit')); }
   for (const p of MGMT) if (p.slug) page(mgmtUrl(p), mgmtPersonPage(p));
   // Site pages (About, For Authors, For Reviewers, Search): content/pages overrides the built-in copies in build/pages.
   const pageFiles = {};

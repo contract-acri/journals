@@ -68,6 +68,24 @@
     });
   });
 
+  // Leaving a hosted journal's pages: the portal goes back to the ACRI Journals look.
+  try { if (!document.documentElement.dataset.hosted && !/\/(login|submit)\/$/.test(location.pathname)) sessionStorage.removeItem('aes_brand'); } catch (e) { }
+
+  // Journal hosting application → Apps Script
+  $$('form[data-api="hostApply"]').forEach(f => f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const msg = $('.c-msg', f), btn = $('button[type=submit]', f), api = window.ACRIJ_API || document.documentElement.dataset.api;
+    const d = { action: 'public.hostApply', agree: !!(f.agree && f.agree.checked) };
+    [...f.elements].forEach(el => { if (el.name && el.type !== 'checkbox' && el.type !== 'submit') d[el.name] = el.value.trim(); });
+    msg.className = 'c-msg'; msg.textContent = 'Sending…'; btn.disabled = true;
+    try {
+      const r = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(d) }).then(x => x.json());
+      if (r.ok) { f.reset(); msg.className = 'c-msg ok'; msg.textContent = r.message || 'Thank you. Your application has been received.'; }
+      else { msg.className = 'c-msg err'; msg.textContent = r.error || 'Something went wrong.'; }
+    } catch { msg.className = 'c-msg err'; msg.textContent = 'Could not reach the server. Please try again later.'; }
+    btn.disabled = false;
+  }));
+
   // Search page
   const sr = $('#search-results');
   if (sr) {
