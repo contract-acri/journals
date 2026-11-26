@@ -1,0 +1,81 @@
+{
+  "slug": "agjsr",
+  "code": "AGJSR",
+  "abbrev": "Apple Glob. J. Stud. Res.",
+  "name": "Apple Global Journal of Student Research",
+  "short": "AGJSR",
+  "issn": "",
+  "eissn": "",
+  "accent": "#314163",
+  "accentTint": "#f3f4f6",
+  "school": "",
+  "since": 2026,
+  "frequency": "Continuous",
+  "scope": "The Apple Global Journal of Student Research (AGJSR) is a peer-reviewed journal published by Apple Global School, Ahmedabad, that showcases original research and scholarly writing by school students. It aims to nurture curiosity, critical thinking and ethical research practice from an early age, and to give young researchers a credible platform to share their work with a wider academic community.\n\nThe journal publishes original research articles, review articles, case studies, reflective essays, experimental reports and project-based inquiries across the sciences, mathematics, social sciences, humanities, languages, arts, technology and sustainability. Interdisciplinary work and research that connects classroom learning to real-world and local community issues is especially encouraged.\n\nAll submissions go through mentored peer review by teachers and subject experts, so that student authors receive constructive feedback that strengthens their research and writing skills. Authors must be school students and must work under the supervision of a teacher or mentor. Child safeguarding, informed consent and parental or guardian consent are required for all submissions. The journal follows principles of academic integrity, originality and open access to knowledge.",
+  "subjects": [
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "Mathematics",
+    "Computer Science and Technology",
+    "Environmental Science and Sustainability",
+    "Economics",
+    "Business and Entrepreneurship",
+    "Psychology",
+    "History",
+    "Geography",
+    "Political Science and Civics",
+    "Sociology",
+    "Philosophy and Ethics",
+    "Languages and Literature",
+    "Visual and Performing Arts",
+    "Education",
+    "Health and Well-being",
+    "Interdisciplinary Studies"
+  ],
+  "articleTypes": [
+    "Original Research",
+    "Review Article",
+    "Research Letter",
+    "Case Study",
+    "Perspective",
+    "Editorial"
+  ],
+  "legacyUrl": "",
+  "noReplyEmail": "agjsr-no-reply@journals.acriindia.org",
+  "editorEmail": "editor@journals.acriindia.org",
+  "officeEmail": "controller@journals.acriindia.org",
+  "boardExtra": [],
+  "active": true,
+  "scopeType": "national",
+  "startYear": 2026,
+  "languages": [
+    "English"
+  ],
+  "formats": [
+    "Online"
+  ],
+  "subjectArea": "",
+  "issnOnline": "",
+  "issnPrint": "",
+  "issnStatus": {
+    "online": "not_applied",
+    "print": "not_applicable"
+  },
+  "logoColor": "#314163",
+  "order": 99,
+  "serialStart": {},
+  "partner": true,
+  "schoolJournal": true,
+  "publisher": {
+    "name": "Apple Global School",
+    "address": "Apple Global School, XCQ9+J8Q, Gibpura, Gujarat 380057",
+    "website": "https://appleglobal.in/",
+    "email": "info@appleglobal.in",
+    "phone": "+91 7573001612",
+    "type": "School"
+  },
+  "partnerStatus": "setup",
+  "editorialEmail": "controller@journals.acriindia.org",
+  "board": []
+}
