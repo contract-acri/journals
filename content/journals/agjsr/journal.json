@@ -46,7 +46,7 @@
   "editorEmail": "editor@journals.acriindia.org",
   "officeEmail": "controller@journals.acriindia.org",
   "boardExtra": [],
-  "active": true,
+  "active": false,
   "scopeType": "national",
   "startYear": 2026,
   "languages": [
@@ -75,7 +75,7 @@
     "phone": "+91 7573001612",
     "type": "School"
   },
-  "partnerStatus": "setup",
+  "partnerStatus": "suspended",
   "editorialEmail": "controller@journals.acriindia.org",
   "board": []
 }
